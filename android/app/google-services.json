@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "257645513339",
+    "project_id": "vetapp-c8037",
+    "storage_bucket": "vetapp-c8037.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:257645513339:android:be3c004551dd89592630de",
+        "android_client_info": {
+          "package_name": "com.vetapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "257645513339-9hvt40gt79ebforbfr937q7c7hk6qqpm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vetapp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "257645513339-r7b61cdkuvttfp71nb61pvcoserjb9d7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxX9O_IpB8HMIJG78jdyJ7o9_wz-1wbNk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "257645513339-1djo7q8bt9u2enhahgcbrvk60hrq4oqe.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "257645513339-gbii56m9d9s2i12iqskvu3pj9p6frete.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.vetApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

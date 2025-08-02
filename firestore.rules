@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - kullanıcılar sadece kendi verilerini okuyabilir/yazabilir
+    match /users/{userId} {
+      // Okuma izni: Belge içindeki "id" alanı giriş yapan kullanıcı UID'si ile aynı olmalı
+      allow read: if request.auth != null && request.auth.uid == resource.data.id;
+      
+      // Güncelleme/Silme izni: Belge içindeki "id" alanı giriş yapan kullanıcı UID'si ile aynı olmalı
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.id;
+      
+      // Create izni: Yeni belge oluşturulurken "id" alanı giriş yapan kullanıcı UID'si ile aynı olmalı
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.id;
+    }
+    
+    // Pets collection - kullanıcılar sadece kendi evcil hayvanlarını okuyabilir/yazabilir
+    match /pets/{petId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Diğer collection'lar için varsayılan kurallar
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
