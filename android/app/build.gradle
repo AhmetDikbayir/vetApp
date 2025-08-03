@@ -53,7 +53,7 @@ react {
     // hermesFlags = ["-O", "-output-source-map"]
 
     /* Autolinking */
-    autolinkLibrariesWithApp()
+    // autolinkLibrariesWithApp()
 }
 
 /**
@@ -121,4 +121,13 @@ dependencies {
     
     implementation platform('com.google.firebase:firebase-bom:32.7.0')
     implementation 'com.google.firebase:firebase-auth'
+    
+    // Manual dependencies for native modules
+    implementation project(':react-native-firebase_app')
+    implementation project(':react-native-firebase_auth')
+    implementation project(':react-native-firebase_firestore')
+    implementation project(':react-native-google-signin_google-signin')
+    implementation project(':invertase_react-native-apple-authentication')
+    implementation project(':react-native-svg')
+    implementation project(':react-native-vector-icons')
 }

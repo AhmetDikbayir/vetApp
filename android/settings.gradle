@@ -4,3 +4,30 @@ extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autoli
 rootProject.name = 'vetApp'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')
+
+// Manual autolinking for native modules
+// Include Firebase modules
+include ':react-native-firebase_app'
+project(':react-native-firebase_app').projectDir = new File(rootProject.projectDir, '../node_modules/@react-native-firebase/app/android')
+
+include ':react-native-firebase_auth'
+project(':react-native-firebase_auth').projectDir = new File(rootProject.projectDir, '../node_modules/@react-native-firebase/auth/android')
+
+include ':react-native-firebase_firestore'
+project(':react-native-firebase_firestore').projectDir = new File(rootProject.projectDir, '../node_modules/@react-native-firebase/firestore/android')
+
+// Include Google Sign-In
+include ':react-native-google-signin_google-signin'
+project(':react-native-google-signin_google-signin').projectDir = new File(rootProject.projectDir, '../node_modules/@react-native-google-signin/google-signin/android')
+
+// Include Apple Authentication
+include ':invertase_react-native-apple-authentication'
+project(':invertase_react-native-apple-authentication').projectDir = new File(rootProject.projectDir, '../node_modules/@invertase/react-native-apple-authentication/android')
+
+// Include SVG
+include ':react-native-svg'
+project(':react-native-svg').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-svg/android')
+
+// Include Vector Icons
+include ':react-native-vector-icons'
+project(':react-native-vector-icons').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-vector-icons/android')

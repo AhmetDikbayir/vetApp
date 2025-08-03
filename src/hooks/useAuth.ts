@@ -10,6 +10,7 @@ export const useAuth = () => {
     isLoading: false,
     isAuthenticated: false,
   });
+  //
 
   // Listen to Firebase auth state changes
   useEffect(() => {

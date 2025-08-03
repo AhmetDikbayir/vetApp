@@ -71,7 +71,6 @@ export const LoginScreen: React.FC = () => {
 
     try {
       await signInWithEmail({ email, password });
-      Alert.alert('Başarılı', 'Giriş yapıldı!');
     } catch (error) {
       Alert.alert('Hata', error instanceof Error ? error.message : 'Giriş başarısız');
     }
