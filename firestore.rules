@@ -4,18 +4,42 @@ service cloud.firestore {
     
     // Users collection - kullanıcılar sadece kendi verilerini okuyabilir/yazabilir
     match /users/{userId} {
-      // Okuma izni: Belge içindeki "id" alanı giriş yapan kullanıcı UID'si ile aynı olmalı
-      allow read: if request.auth != null && request.auth.uid == resource.data.id;
+      // Okuma izni: Döküman ID'si giriş yapan kullanıcı UID'si ile aynı olmalı
+      allow read: if request.auth != null && request.auth.uid == userId;
       
-      // Güncelleme/Silme izni: Belge içindeki "id" alanı giriş yapan kullanıcı UID'si ile aynı olmalı
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.id;
+      // Güncelleme izni: Döküman ID'si giriş yapan kullanıcı UID'si ile aynı olmalı
+      allow update: if request.auth != null && request.auth.uid == userId;
       
-      // Create izni: Yeni belge oluşturulurken "id" alanı giriş yapan kullanıcı UID'si ile aynı olmalı
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.id;
+      // Silme izni: Döküman ID'si giriş yapan kullanıcı UID'si ile aynı olmalı
+      allow delete: if request.auth != null && request.auth.uid == userId;
+      
+      // Create izni: Yeni belge oluşturulurken döküman ID'si giriş yapan kullanıcı UID'si ile aynı olmalı
+      // Ayrıca id alanı da aynı olmalı
+      allow create: if request.auth != null && 
+                   request.auth.uid == userId && 
+                   request.auth.uid == request.resource.data.id;
     }
     
     // Pets collection - kullanıcılar sadece kendi evcil hayvanlarını okuyabilir/yazabilir
     match /pets/{petId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Clinics collection - herkes okuyabilir, sadece admin yazabilir
+    match /clinics/{clinicId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Sadece admin panelinden yazılabilir
+    }
+    
+    // Veterinarians collection - herkes okuyabilir, sadece admin yazabilir
+    match /veterinarians/{veterinarianId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Sadece admin panelinden yazılabilir
+    }
+    
+    // Appointments collection - kullanıcılar sadece kendi randevularını okuyabilir/yazabilir
+    match /appointments/{appointmentId} {
       allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }

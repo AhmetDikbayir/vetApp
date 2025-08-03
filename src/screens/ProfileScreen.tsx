@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { userService } from '../services/userService';
+import auth from '@react-native-firebase/auth';
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -25,11 +26,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
+    role: user?.role || 'hayvan_sahibi',
   });
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
 
   // Kullanıcı bilgilerini logla
   console.log('ProfileScreen: Mevcut kullanıcı bilgileri:', user);
   console.log('ProfileScreen: Kullanıcı ID:', user?.id);
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'veteriner':
+        return 'Veteriner';
+      case 'hayvan_sahibi':
+        return 'Hayvan Sahibi';
+      default:
+        return 'Belirtilmemiş';
+    }
+  };
 
   const handleUpdateProfile = async () => {
     if (!user) {
@@ -62,9 +76,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
       console.log('ProfileScreen: Yeni email:', formData.email.trim());
       console.log('ProfileScreen: Güncellenecek veriler:', formData);
 
+      // Kullanıcının gerçekten giriş yapmış olup olmadığını kontrol et
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        throw new Error('Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      }
+
+      console.log('ProfileScreen: Firebase Auth kullanıcısı doğrulandı:', currentUser.uid);
+
       await userService.updateUser(user.id, {
         name: formData.name.trim(),
         email: formData.email.trim(),
+        role: formData.role,
       });
 
       console.log('ProfileScreen: Firestore güncelleme başarılı');
@@ -75,6 +98,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           ...user,
           name: formData.name.trim(),
           email: formData.email.trim(),
+          role: formData.role,
         };
         updateUser(updatedUserData);
         console.log('ProfileScreen: Auth context güncellendi:', updatedUserData);
@@ -99,6 +123,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           case 'firestore/deadline-exceeded':
             errorMessage = 'İşlem zaman aşımına uğradı.';
             break;
+          case 'firestore/not-found':
+            errorMessage = 'Kullanıcı verisi bulunamadı.';
+            break;
           default:
             errorMessage = firebaseError.message || 'Bilinmeyen bir hata oluştu';
         }
@@ -116,6 +143,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
     const currentFormData = {
       name: user?.name || '',
       email: user?.email || '',
+      role: user?.role || 'hayvan_sahibi',
     };
     console.log('ProfileScreen: Modal açılıyor, form verileri:', currentFormData);
     setFormData(currentFormData);
@@ -153,6 +181,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>E-posta</Text>
               <Text style={styles.infoValue}>{user?.email || 'Belirtilmemiş'}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Rol</Text>
+              <Text style={styles.infoValue}>{getRoleDisplayName(user?.role || '')}</Text>
             </View>
           </View>
 
@@ -198,6 +231,43 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                 placeholder="E-posta adresinizi girin"
                 keyboardType="email-address"
               />
+
+              {/* Rol Seçimi */}
+              <View style={styles.roleContainer}>
+                <Text style={styles.roleLabel}>Rol</Text>
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => setShowRoleDropdown(!showRoleDropdown)}
+                >
+                  <Text style={styles.dropdownButtonText}>
+                    {getRoleDisplayName(formData.role)}
+                  </Text>
+                  <Text style={styles.dropdownArrow}>{showRoleDropdown ? '▲' : '▼'}</Text>
+                </TouchableOpacity>
+                
+                {showRoleDropdown && (
+                  <View style={styles.dropdownList}>
+                    <TouchableOpacity
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setFormData({ ...formData, role: 'veteriner' });
+                        setShowRoleDropdown(false);
+                      }}
+                    >
+                      <Text style={styles.dropdownItemText}>Veteriner</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setFormData({ ...formData, role: 'hayvan_sahibi' });
+                        setShowRoleDropdown(false);
+                      }}
+                    >
+                      <Text style={styles.dropdownItemText}>Hayvan Sahibi</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
 
               <View style={styles.modalButtons}>
                 <Button
@@ -338,6 +408,53 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     padding: 20,
+  },
+  roleContainer: {
+    marginTop: 16,
+  },
+  roleLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 8,
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 8,
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    color: '#1A1A1A',
+  },
+  dropdownArrow: {
+    fontSize: 12,
+    color: '#666666',
+  },
+  dropdownList: {
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: '#1A1A1A',
   },
   modalButtons: {
     flexDirection: 'row',

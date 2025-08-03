@@ -10,7 +10,6 @@ export const useAuth = () => {
     isLoading: false,
     isAuthenticated: false,
   });
-  //
 
   // Listen to Firebase auth state changes
   useEffect(() => {
@@ -30,34 +29,72 @@ export const useAuth = () => {
               isAuthenticated: true,
             });
           } else {
-            // Firestore'da yoksa Firebase Auth bilgilerini kullan
-            console.log('useAuth: Firestore\'da kullanıcı bulunamadı, Firebase Auth bilgileri kullanılıyor');
-            const user: User = {
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              name: firebaseUser.displayName || '',
-              photoUrl: firebaseUser.photoURL || undefined,
-            };
+                         // Firestore'da yoksa yeni kullanıcı oluştur
+             console.log('useAuth: Firestore\'da kullanıcı bulunamadı, yeni kullanıcı oluşturuluyor');
+             const newUser: User = {
+               id: firebaseUser.uid,
+               email: firebaseUser.email || '',
+               name: firebaseUser.displayName || '',
+               role: 'hayvan_sahibi', // Varsayılan rol
+             };
+             
+             // Sadece tanımlı photoUrl varsa ekle
+             if (firebaseUser.photoURL) {
+               newUser.photoUrl = firebaseUser.photoURL;
+             }
+            
+            try {
+              // Yeni kullanıcıyı Firestore'a kaydet
+              await userService.createUser(newUser);
+              console.log('useAuth: Yeni kullanıcı Firestore\'a kaydedildi');
+              setAuthState({
+                user: newUser,
+                isLoading: false,
+                isAuthenticated: true,
+              });
+            } catch (createError) {
+              console.error('useAuth: Kullanıcı oluşturma hatası, varsayılan kullanıcı kullanılıyor:', createError);
+              // Hata durumunda varsayılan kullanıcı ile devam et
+              setAuthState({
+                user: newUser,
+                isLoading: false,
+                isAuthenticated: true,
+              });
+            }
+          }
+        } catch (error) {
+          console.error('useAuth: Firestore kullanıcı bilgisi alma hatası:', error);
+                     // Hata durumunda yeni kullanıcı oluşturmayı dene
+           const newUser: User = {
+             id: firebaseUser.uid,
+             email: firebaseUser.email || '',
+             name: firebaseUser.displayName || '',
+             role: 'hayvan_sahibi', // Varsayılan rol
+           };
+           
+           // Sadece tanımlı photoUrl varsa ekle
+           if (firebaseUser.photoURL) {
+             newUser.photoUrl = firebaseUser.photoURL;
+           }
+          
+          try {
+            // Yeni kullanıcıyı Firestore'a kaydet
+            await userService.createUser(newUser);
+            console.log('useAuth: Hata sonrası yeni kullanıcı Firestore\'a kaydedildi');
             setAuthState({
-              user,
+              user: newUser,
+              isLoading: false,
+              isAuthenticated: true,
+            });
+          } catch (createError) {
+            console.error('useAuth: Hata sonrası kullanıcı oluşturma da başarısız, varsayılan kullanıcı kullanılıyor:', createError);
+            // Son çare olarak varsayılan kullanıcı ile devam et
+            setAuthState({
+              user: newUser,
               isLoading: false,
               isAuthenticated: true,
             });
           }
-        } catch (error) {
-          console.error('useAuth: Firestore kullanıcı bilgisi alma hatası:', error);
-          // Hata durumunda Firebase Auth bilgilerini kullan
-          const user: User = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || '',
-            photoUrl: firebaseUser.photoURL || undefined,
-          };
-          setAuthState({
-            user,
-            isLoading: false,
-            isAuthenticated: true,
-          });
         }
         console.log('useAuth: Kullanıcı oturumu açık, state güncellendi');
       } else {

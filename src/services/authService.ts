@@ -22,17 +22,27 @@ class AuthServiceImpl implements AuthService {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
   
       const userInfo = await GoogleSignin.signIn();
+      console.log('Google Sign-In userInfo:', userInfo);
   
-      const { idToken } = await GoogleSignin.getTokens(); // 🔑 ID token al
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken); // 🔐 Firebase'e hazırla
+      const { idToken } = await GoogleSignin.getTokens();
+      console.log('Google Sign-In idToken alındı:', idToken ? 'Var' : 'Yok');
+      
+      if (!idToken) {
+        throw new Error('Google ID token alınamadı');
+      }
+      
+      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+      console.log('Google credential oluşturuldu');
   
-      const firebaseUserCredential = await auth().signInWithCredential(googleCredential); // ✅ Firebase login
+      const firebaseUserCredential = await auth().signInWithCredential(googleCredential);
+      console.log('Firebase giriş başarılı:', firebaseUserCredential.user.uid);
   
       const user: User = {
         id: firebaseUserCredential.user.uid,
         email: firebaseUserCredential.user.email || '',
         name: firebaseUserCredential.user.displayName || '',
         photoUrl: firebaseUserCredential.user.photoURL || undefined,
+        role: 'hayvan_sahibi', // Google Sign-In ile gelen kullanıcılar varsayılan olarak hayvan sahibi
       };
   
       // Kullanıcıyı Firestore'a kaydet
@@ -41,45 +51,43 @@ class AuthServiceImpl implements AuthService {
         console.log('authService: Google kullanıcısı Firestore\'a başarıyla kaydedildi');
       } catch (firestoreError) {
         console.error('authService: Firestore kullanıcı kaydetme hatası:', firestoreError);
-        // Firestore hatası durumunda updateUser ile tekrar dene
-        try {
-          console.log('authService: updateUser ile tekrar deneniyor...');
-          await userService.updateUser(user.id, {
-            email: user.email,
-            name: user.name,
-            photoUrl: user.photoUrl,
-          });
-          console.log('authService: updateUser ile başarıyla kaydedildi');
-        } catch (updateError) {
-          console.error('authService: updateUser da başarısız:', updateError);
-          // Son çare olarak merge ile dene
-          try {
-            console.log('authService: Son çare olarak merge ile deneniyor...');
-            const docRef = firestore().collection('users').doc(user.id);
-            await docRef.set({
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              photoUrl: user.photoUrl,
-              createdAt: firestore.Timestamp.now(),
-              updatedAt: firestore.Timestamp.now(),
-            }, { merge: true });
-            console.log('authService: Merge ile başarıyla kaydedildi');
-          } catch (mergeError) {
-            console.error('authService: Tüm Firestore kaydetme yöntemleri başarısız:', mergeError);
-            // Firestore hatası olsa bile giriş işlemi devam etsin
-          }
-        }
+        // Firestore hatası olsa bile giriş işlemi devam etsin
       }
   
       // currentUser will be updated by Firebase auth state listener
       return user;
     } catch (error) {
       console.error('Google Sign-In Error Details:', error);
-      throw new Error(`Google ile giriş başarısız: ${error}`);
+      
+      // Hata koduna göre özel mesajlar
+      let errorMessage = 'Google ile giriş başarısız';
+      
+      if (error && typeof error === 'object' && 'code' in error) {
+        const errorCode = (error as any).code;
+        switch (errorCode) {
+          case '12500':
+            errorMessage = 'Google Sign-In yapılandırması geçersiz. Lütfen tekrar deneyin.';
+            break;
+          case '12501':
+            errorMessage = 'Giriş işlemi iptal edildi';
+            break;
+          case '7':
+            errorMessage = 'Ağ bağlantı sorunu';
+            break;
+          case '10':
+            errorMessage = 'Google yapılandırması geçersiz';
+            break;
+          case '16':
+            errorMessage = 'Zaten giriş yaptınız';
+            break;
+          default:
+            errorMessage = `Google ile giriş başarısız (Kod: ${errorCode})`;
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
   }
-  
 
   async signInWithApple(): Promise<User> {
     try {
@@ -103,6 +111,7 @@ class AuthServiceImpl implements AuthService {
         id: firebaseUserCredential.user.uid,
         email: firebaseUserCredential.user.email || '',
         name: firebaseUserCredential.user.displayName || '',
+        role: 'hayvan_sahibi', // Apple Sign-In ile gelen kullanıcılar varsayılan olarak hayvan sahibi
       };
 
       console.log('authService: Apple kullanıcısı giriş yaptı:', user);
@@ -119,6 +128,7 @@ class AuthServiceImpl implements AuthService {
           await userService.updateUser(user.id, {
             email: user.email,
             name: user.name,
+            role: user.role,
           });
           console.log('authService: updateUser ile başarıyla kaydedildi');
         } catch (updateError) {
@@ -131,6 +141,7 @@ class AuthServiceImpl implements AuthService {
               id: user.id,
               email: user.email,
               name: user.name,
+              role: user.role,
               createdAt: firestore.Timestamp.now(),
               updatedAt: firestore.Timestamp.now(),
             }, { merge: true });
@@ -182,6 +193,7 @@ class AuthServiceImpl implements AuthService {
               await userService.updateUser(user.id, {
                 email: user.email,
                 name: user.name,
+                role: 'hayvan_sahibi', // Varsayılan rol
               });
               console.log('authService: updateUser ile başarıyla kaydedildi');
             } catch (updateError) {
@@ -193,6 +205,7 @@ class AuthServiceImpl implements AuthService {
                   id: user.id,
                   email: user.email,
                   name: user.name,
+                  role: 'hayvan_sahibi', // Varsayılan rol
                   createdAt: firestore.Timestamp.now(),
                   updatedAt: firestore.Timestamp.now(),
                 }, { merge: true });
@@ -230,7 +243,10 @@ class AuthServiceImpl implements AuthService {
       const user: User = {
         id: firebaseUserCredential.user.uid,
         email: firebaseUserCredential.user.email || '',
-        name: credentials.email.split('@')[0],
+        name: `${credentials.firstName || ''} ${credentials.lastName || ''}`.trim() || credentials.email.split('@')[0],
+        firstName: credentials.firstName,
+        lastName: credentials.lastName,
+        role: credentials.role,
       };
 
       console.log('authService: Firebase kullanıcısı oluşturuldu:', user);
@@ -249,6 +265,9 @@ class AuthServiceImpl implements AuthService {
           await userService.updateUser(user.id, {
             email: user.email,
             name: user.name,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
           });
           console.log('authService: updateUser ile başarıyla kaydedildi');
         } catch (updateError) {
@@ -261,6 +280,9 @@ class AuthServiceImpl implements AuthService {
               id: user.id,
               email: user.email,
               name: user.name,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role,
               createdAt: firestore.Timestamp.now(),
               updatedAt: firestore.Timestamp.now(),
             }, { merge: true });
@@ -305,6 +327,7 @@ class AuthServiceImpl implements AuthService {
         email: firebaseUser.email || '',
         name: firebaseUser.displayName || '',
         photoUrl: firebaseUser.photoURL || undefined,
+        role: 'hayvan_sahibi', // Varsayılan rol
       };
     }
     return null;

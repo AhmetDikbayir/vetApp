@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
+import AppointmentModal from '../components/AppointmentModal';
 import { styles } from '../styles/homeScreenStyles';
 
 interface HomeScreenProps {
@@ -16,8 +17,11 @@ interface HomeScreenProps {
   onNavigateToProfile: () => void;
 }
 
+
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNavigateToProfile }) => {
   const { user, signOut } = useAuth();
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -32,6 +36,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
 
   const handleAddPet = () => {
     onNavigateToAddPet();
+  };
+
+  const handleAppointmentPress = () => {
+    setShowAppointmentModal(true);
+  };
+
+  const handleAppointmentConfirm = (appointmentData: any) => {
+    console.log('Randevu alındı:', appointmentData);
+    
+    const { appointment, clinic, veterinarian, pet } = appointmentData;
+    
+    // Tarihi formatla
+    const date = new Date(appointment.date);
+    const formattedDate = date.toLocaleDateString('tr-TR', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    
+    Alert.alert(
+      'Randevu Başarılı!',
+      `${clinic.name}\n${veterinarian.name}\n${pet.name}\n${formattedDate} - ${appointment.time}\n\nRandevunuz başarıyla oluşturuldu.`,
+      [{ text: 'Tamam', style: 'default' }]
+    );
   };
 
   return (
@@ -55,7 +84,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.serviceCard}>
+            <TouchableOpacity style={styles.serviceCard} onPress={handleAppointmentPress}>
               <Text style={styles.serviceTitle}>📅 Randevu Al</Text>
               <Text style={styles.serviceDescription}>
                 Veteriner hekiminizle randevu oluşturun
@@ -85,6 +114,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
           variant="secondary"
         />
       </ScrollView>
+
+      <AppointmentModal
+        visible={showAppointmentModal}
+        onClose={() => setShowAppointmentModal(false)}
+        onConfirm={handleAppointmentConfirm}
+      />
     </SafeAreaView>
   );
 };
