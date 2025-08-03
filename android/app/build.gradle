@@ -119,8 +119,6 @@ dependencies {
         implementation jscFlavor
     }
     
-    // Import the Firebase BoM
-    implementation platform('com.google.firebase:firebase-bom:34.0.0')
-    // TODO: Add the dependencies for Firebase products you want to use
-    implementation 'com.google.firebase:firebase-analytics'
+    implementation platform('com.google.firebase:firebase-bom:32.7.0')
+    implementation 'com.google.firebase:firebase-auth'
 }

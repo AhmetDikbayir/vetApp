@@ -6,6 +6,8 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import { GoogleIcon } from './icons/GoogleIcon';
+import { AppleIcon } from './icons/AppleIcon';
 
 interface SocialLoginButtonProps {
   type: 'google' | 'apple';
@@ -45,11 +47,11 @@ export const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({
   const getIcon = () => {
     switch (type) {
       case 'google':
-        return '🔍';
+        return <GoogleIcon size={24} />;
       case 'apple':
-        return '🍎';
+        return <AppleIcon size={24} />;
       default:
-        return '';
+        return null;
     }
   };
 
@@ -78,7 +80,7 @@ export const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({
         />
       ) : (
         <View style={styles.content}>
-          <Text style={styles.icon}>{getIcon()}</Text>
+          <View style={styles.icon}>{getIcon()}</View>
           <Text style={[styles.title, getTextStyle()]}>{getTitle()}</Text>
         </View>
       )}
@@ -94,17 +96,25 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 2,
     marginVertical: 8,
     minHeight: 56,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   googleButton: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#E5E5EA',
+    borderColor: '#4285F4',
   },
   appleButton: {
     backgroundColor: '#000000',
-    borderColor: '#000000',
+    borderColor: '#333333',
   },
   disabled: {
     opacity: 0.5,
@@ -114,8 +124,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   icon: {
-    fontSize: 24,
     marginRight: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 16,

@@ -70,16 +70,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   primary: {
     backgroundColor: '#007AFF',
   },
   secondary: {
     backgroundColor: '#F2F2F7',
+    borderWidth: 2,
+    borderColor: '#007AFF',
   },
   outline: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#007AFF',
   },
   small: {

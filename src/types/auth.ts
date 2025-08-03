@@ -2,12 +2,18 @@ export interface User {
   id: string; // Firebase UID
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
   photoUrl?: string;
 }
 
 export interface LoginCredentials {
   email: string;
   password: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
 }
 
 export interface AuthState {

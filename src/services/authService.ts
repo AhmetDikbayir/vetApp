@@ -12,7 +12,7 @@ class AuthServiceImpl implements AuthService {
 
   private initializeGoogleSignIn(): void {
     GoogleSignin.configure({
-      webClientId: '257645513339-1djo7q8bt9u2enhahgcbrvk60hrq4oqe.apps.googleusercontent.com',
+      webClientId: '257645513339-r7b61cdkuvttfp71nb61pvcoserjb9d7.apps.googleusercontent.com',
     });
   }
 

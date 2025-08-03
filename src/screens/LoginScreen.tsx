@@ -2,24 +2,29 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   SafeAreaView,
   ScrollView,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { SocialLoginButton } from '../components/SocialLoginButton';
+import { SignUpModal } from '../components/SignUpModal';
 import { useAuthContext } from '../context/AuthContext';
+import { styles } from '../styles/loginScreenStyles';
 
 export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  
+  // Kayıt modalı için state
+  const [isSignUpModalVisible, setIsSignUpModalVisible] = useState(false);
 
   const {
     signInWithGoogle,
@@ -72,35 +77,19 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  const handleEmailSignUp = async () => {
-    // Reset errors
-    setEmailError('');
-    setPasswordError('');
+  const openSignUpModal = () => {
+    setIsSignUpModalVisible(true);
+  };
 
-    // Validate inputs
-    if (!email.trim()) {
-      setEmailError('Email adresi gereklidir');
-      return;
-    }
+  const closeSignUpModal = () => {
+    setIsSignUpModalVisible(false);
+  };
 
-    if (!validateEmail(email)) {
-      setEmailError('Geçerli bir email adresi giriniz');
-      return;
-    }
-
-    if (!password.trim()) {
-      setPasswordError('Şifre gereklidir');
-      return;
-    }
-
-    if (!validatePassword(password)) {
-      setPasswordError('Şifre en az 6 karakter olmalıdır');
-      return;
-    }
-
+  const handleEmailSignUp = async (email: string, password: string, firstName: string, lastName: string, role: string) => {
     try {
-      await signUpWithEmail({ email, password });
+      await signUpWithEmail({ email, password, firstName, lastName, role });
       Alert.alert('Başarılı', 'Hesap oluşturuldu!');
+      closeSignUpModal();
     } catch (error) {
       Alert.alert('Hata', error instanceof Error ? error.message : 'Kayıt başarısız');
     }
@@ -171,8 +160,7 @@ export const LoginScreen: React.FC = () => {
             
             <Button
               title="Kayıt Ol"
-              onPress={handleEmailSignUp}
-              loading={isLoading}
+              onPress={openSignUpModal}
               style={styles.signUpButton}
               variant="secondary"
             />
@@ -191,86 +179,25 @@ export const LoginScreen: React.FC = () => {
               loading={isLoading}
             />
           </View>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              Hesabınız yok mu?{' '}
-              <Text style={styles.linkText}>Kayıt olun</Text>
-            </Text>
+          <View style={styles.socialButtons}>
+            <SocialLoginButton
+              type="apple"
+              onPress={handleAppleSignIn}
+              loading={isLoading}
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Kayıt Modalı */}
+      <SignUpModal
+        visible={isSignUpModalVisible}
+        onClose={closeSignUpModal}
+        onSignUp={handleEmailSignUp}
+        isLoading={isLoading}
+      />
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 48,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  form: {
-    marginBottom: 32,
-  },
-  loginButton: {
-    marginTop: 16,
-  },
-  signUpButton: {
-    marginTop: 12,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E5EA',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
-  socialButtons: {
-    marginBottom: 32,
-  },
-  footer: {
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  linkText: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-}); 
+ 
