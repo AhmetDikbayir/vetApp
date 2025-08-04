@@ -6,6 +6,7 @@ export interface User {
   lastName?: string;
   role?: string;
   photoUrl?: string;
+  clinicId?: string; // Veteriner rolü için klinik ID'si
 }
 
 export interface LoginCredentials {

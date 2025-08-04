@@ -75,15 +75,21 @@ class PetServiceImpl {
       
       const snapshot = await this.getPetsCollection()
         .where('userId', '==', userId)
-        .orderBy('createdAt', 'desc')
         .get();
 
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
-      })) as Pet[];
+      // Client-side sıralama yap
+      const pets = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
+        };
+      }) as Pet[];
+      
+      // En yeni tarihten en eskiye sırala
+      return pets.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     } catch (error) {
       console.error('Pet listesi alma hatası:', error);
       throw new Error('Evcil hayvan listesi alınırken hata oluştu');
@@ -98,11 +104,12 @@ class PetServiceImpl {
         return null;
       }
 
+      const data = doc.data();
       return {
         id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data()?.createdAt.toDate(),
-        updatedAt: doc.data()?.updatedAt.toDate(),
+        ...data,
+        createdAt: data?.createdAt ? data.createdAt.toDate() : new Date(),
+        updatedAt: data?.updatedAt ? data.updatedAt.toDate() : new Date(),
       } as Pet;
     } catch (error) {
       console.error('Pet alma hatası:', error);

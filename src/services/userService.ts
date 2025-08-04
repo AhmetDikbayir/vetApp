@@ -38,6 +38,9 @@ class UserServiceImpl {
       if (userData.photoUrl !== undefined && userData.photoUrl !== null) {
         userDoc.photoUrl = userData.photoUrl;
       }
+      if (userData.clinicId !== undefined && userData.clinicId !== null) {
+        userDoc.clinicId = userData.clinicId;
+      }
 
       console.log('userService: Firebase\'e gönderilecek user verisi:', userDoc);
 
@@ -112,6 +115,9 @@ class UserServiceImpl {
       }
       if (userData.photoUrl !== undefined && userData.photoUrl !== null) {
         updateData.photoUrl = userData.photoUrl;
+      }
+      if (userData.clinicId !== undefined && userData.clinicId !== null) {
+        updateData.clinicId = userData.clinicId;
       }
       
       // set() fonksiyonunu merge: true seçeneği ile kullan

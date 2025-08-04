@@ -40,17 +40,33 @@ class VeterinarianServiceImpl {
     try {
       const snapshot = await this.getVeterinariansCollection()
         .where('isAvailable', '==', true)
-        .orderBy('rating', 'desc')
         .get();
 
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
-      })) as Veterinarian[];
+      // Client-side sıralama yap
+      const veterinarians = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
+        };
+      }) as Veterinarian[];
+      
+      // Rating'e göre sırala (en yüksekten en düşüğe)
+      return veterinarians.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     } catch (error) {
       console.error('Veterinarian listesi alma hatası:', error);
+      
+      // Permission denied hatası durumunda boş liste döndür
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string; message?: string };
+        if (firebaseError.code === 'firestore/permission-denied') {
+          console.log('Veterinarian service: Permission denied, boş liste döndürülüyor');
+          return [];
+        }
+      }
+      
       throw new Error('Veteriner listesi alınırken hata oluştu');
     }
   }
@@ -60,17 +76,33 @@ class VeterinarianServiceImpl {
       const snapshot = await this.getVeterinariansCollection()
         .where('clinicId', '==', clinicId)
         .where('isAvailable', '==', true)
-        .orderBy('rating', 'desc')
         .get();
 
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
-      })) as Veterinarian[];
+      // Client-side sıralama yap
+      const veterinarians = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
+        };
+      }) as Veterinarian[];
+      
+      // Rating'e göre sırala (en yüksekten en düşüğe)
+      return veterinarians.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     } catch (error) {
       console.error('Klinik veterinerleri alma hatası:', error);
+      
+      // Permission denied hatası durumunda boş liste döndür
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string; message?: string };
+        if (firebaseError.code === 'firestore/permission-denied') {
+          console.log('Veterinarian service: Permission denied, boş liste döndürülüyor');
+          return [];
+        }
+      }
+      
       throw new Error('Klinik veterinerleri alınırken hata oluştu');
     }
   }
@@ -83,11 +115,12 @@ class VeterinarianServiceImpl {
         return null;
       }
 
+      const data = doc.data();
       return {
         id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data()?.createdAt.toDate(),
-        updatedAt: doc.data()?.updatedAt.toDate(),
+        ...data,
+        createdAt: data?.createdAt ? data.createdAt.toDate() : new Date(),
+        updatedAt: data?.updatedAt ? data.updatedAt.toDate() : new Date(),
       } as Veterinarian;
     } catch (error) {
       console.error('Veterinarian alma hatası:', error);
@@ -115,6 +148,29 @@ class VeterinarianServiceImpl {
     } catch (error) {
       console.error('Veterinarian silme hatası:', error);
       throw new Error('Veteriner silinirken hata oluştu');
+    }
+  }
+
+  // Debug fonksiyonu - tüm veterinerleri getir
+  async getAllVeterinarians(): Promise<Veterinarian[]> {
+    try {
+      const snapshot = await this.getVeterinariansCollection().get();
+      
+      const veterinarians = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
+        };
+      }) as Veterinarian[];
+      
+      console.log('Tüm veterinerler:', veterinarians);
+      return veterinarians;
+    } catch (error) {
+      console.error('Tüm veterinerleri alma hatası:', error);
+      return [];
     }
   }
 }

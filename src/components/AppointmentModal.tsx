@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { clinicService } from '../services/clinicService';
 import { veterinarianService } from '../services/veterinarianService';
@@ -120,7 +121,15 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
   const loadVeterinarians = async (clinicId: string) => {
     try {
       setLoadingVeterinarians(true);
+      console.log('AppointmentModal: Klinik ID:', clinicId);
+      
+      // Debug: Tüm veterinerleri getir
+      const allVets = await veterinarianService.getAllVeterinarians();
+      console.log('AppointmentModal: Tüm veterinerler:', allVets);
+      
       const veterinariansData = await veterinarianService.getVeterinariansByClinic(clinicId);
+      console.log('AppointmentModal: Klinik veterinerleri:', veterinariansData);
+      
       setVeterinarians(veterinariansData);
     } catch (error) {
       console.error('Veterinerler yüklenirken hata:', error);
@@ -169,12 +178,18 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
     try {
       setLoading(true);
       
-      // Müsaitlik kontrolü
-      const isAvailable = await appointmentService.checkAvailability(
-        selectedVeterinarian.id!,
-        selectedDate,
-        selectedTime
-      );
+      // Müsaitlik kontrolü (opsiyonel)
+      let isAvailable = true;
+      try {
+        isAvailable = await appointmentService.checkAvailability(
+          selectedVeterinarian.id!,
+          selectedDate,
+          selectedTime
+        );
+      } catch (availabilityError) {
+        console.warn('Müsaitlik kontrolü başarısız, randevu oluşturmaya devam ediliyor:', availabilityError);
+        // Müsaitlik kontrolü başarısız olsa bile randevu oluşturmaya devam et
+      }
 
       if (!isAvailable) {
         Alert.alert('Uyarı', 'Seçilen tarih ve saatte veteriner müsait değil. Lütfen başka bir zaman seçin.');
@@ -201,10 +216,34 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
         pet: selectedPet,
       });
       
+      // Formu sıfırla
+      setSelectedDate('');
+      setSelectedTime('09:00');
+      setSelectedClinic(null);
+      setSelectedVeterinarian(null);
+      setSelectedPet(null);
+      setAppointmentType('checkup');
+      setReason('');
+      
       onClose();
     } catch (error) {
       console.error('Randevu oluşturma hatası:', error);
-      Alert.alert('Hata', 'Randevu oluşturulurken bir hata oluştu');
+      
+      // Daha spesifik hata mesajları
+      let errorMessage = 'Randevu oluşturulurken bir hata oluştu';
+      
+      if (error && typeof error === 'object' && 'message' in error) {
+        const errorObj = error as { message: string };
+        if (errorObj.message.includes('Müsaitlik kontrol')) {
+          errorMessage = 'Müsaitlik kontrolü sırasında bir hata oluştu. Lütfen tekrar deneyin.';
+        } else if (errorObj.message.includes('Kullanıcı oturumu')) {
+          errorMessage = 'Oturum bilgileriniz bulunamadı. Lütfen tekrar giriş yapın.';
+        } else if (errorObj.message.includes('permission-denied')) {
+          errorMessage = 'Bu işlem için yetkiniz bulunmuyor. Lütfen tekrar giriş yapın.';
+        }
+      }
+      
+      Alert.alert('Hata', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -336,14 +375,16 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
                         >
                           {veterinarian.name}
                         </Text>
-                        <Text
-                          style={[
-                            styles.veterinarianSpecialization,
-                            selectedVeterinarian?.id === veterinarian.id && styles.selectedVeterinarianText,
-                          ]}
-                        >
-                          {veterinarian.specialization.join(', ')}
-                        </Text>
+                                                 <Text
+                           style={[
+                             styles.veterinarianSpecialization,
+                             selectedVeterinarian?.id === veterinarian.id && styles.selectedVeterinarianText,
+                           ]}
+                         >
+                           {Array.isArray(veterinarian.specialization) 
+                             ? veterinarian.specialization.join(', ') 
+                             : veterinarian.specialization || 'Uzmanlık belirtilmemiş'}
+                         </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -414,28 +455,15 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             {/* Sebep */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>📝 Randevu Sebebi</Text>
-              <TouchableOpacity
+              <TextInput
                 style={styles.reasonInput}
-                onPress={() => {
-                  Alert.prompt(
-                    'Randevu Sebebi',
-                    'Lütfen randevu sebebini belirtin:',
-                    [
-                      { text: 'İptal', style: 'cancel' },
-                      { 
-                        text: 'Tamam', 
-                        onPress: (text: string | undefined) => setReason(text || '')
-                      }
-                    ],
-                    'plain-text',
-                    reason
-                  );
-                }}
-              >
-                <Text style={styles.reasonText}>
-                  {reason || 'Randevu sebebini belirtin...'}
-                </Text>
-              </TouchableOpacity>
+                value={reason}
+                onChangeText={setReason}
+                placeholder="Randevu sebebini belirtin..."
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
             </View>
           </ScrollView>
 

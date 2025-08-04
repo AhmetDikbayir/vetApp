@@ -36,18 +36,34 @@ class ClinicServiceImpl {
 
   async getClinics(): Promise<Clinic[]> {
     try {
-      const snapshot = await this.getClinicsCollection()
-        .orderBy('rating', 'desc')
-        .get();
+      const snapshot = await this.getClinicsCollection().get();
+      console.log('Clinic listesi:', snapshot.docs.map(doc => doc.data()));
 
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
-      })) as Clinic[];
+      // Client-side sıralama yap
+      const clinics = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
+        };
+      }) as Clinic[];
+      
+      // Rating'e göre sırala (en yüksekten en düşüğe)
+      return clinics.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     } catch (error) {
       console.error('Clinic listesi alma hatası:', error);
+      
+      // Permission denied hatası durumunda boş liste döndür
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string; message?: string };
+        if (firebaseError.code === 'firestore/permission-denied') {
+          console.log('Clinic service: Permission denied, boş liste döndürülüyor');
+          return [];
+        }
+      }
+      
       throw new Error('Klinik listesi alınırken hata oluştu');
     }
   }
@@ -60,11 +76,12 @@ class ClinicServiceImpl {
         return null;
       }
 
+      const data = doc.data();
       return {
         id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data()?.createdAt.toDate(),
-        updatedAt: doc.data()?.updatedAt.toDate(),
+        ...data,
+        createdAt: data?.createdAt ? data.createdAt.toDate() : new Date(),
+        updatedAt: data?.updatedAt ? data.updatedAt.toDate() : new Date(),
       } as Clinic;
     } catch (error) {
       console.error('Clinic alma hatası:', error);
@@ -100,12 +117,15 @@ class ClinicServiceImpl {
       // Basit bir yakınlık araması (gerçek uygulamada daha gelişmiş algoritma kullanılabilir)
       const snapshot = await this.getClinicsCollection().get();
       
-      const clinics = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
-      })) as Clinic[];
+      const clinics = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date(),
+        };
+      }) as Clinic[];
 
       // Mesafe hesaplama (Haversine formülü)
       const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {

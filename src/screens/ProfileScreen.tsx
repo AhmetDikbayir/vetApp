@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { userService } from '../services/userService';
+import { clinicService } from '../services/clinicService';
+import { veterinarianService } from '../services/veterinarianService';
+import { Clinic } from '../types/clinic';
 import auth from '@react-native-firebase/auth';
 
 interface ProfileScreenProps {
@@ -27,12 +30,93 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
     name: user?.name || '',
     email: user?.email || '',
     role: user?.role || 'hayvan_sahibi',
+    clinicId: '',
   });
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [showClinicDropdown, setShowClinicDropdown] = useState(false);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [loadingClinics, setLoadingClinics] = useState(false);
+  const [showAddClinicModal, setShowAddClinicModal] = useState(false);
+  const [newClinicData, setNewClinicData] = useState({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+  });
 
   // Kullanıcı bilgilerini logla
   console.log('ProfileScreen: Mevcut kullanıcı bilgileri:', user);
   console.log('ProfileScreen: Kullanıcı ID:', user?.id);
+
+  // Klinikleri yükle
+  const loadClinics = async () => {
+    try {
+      setLoadingClinics(true);
+      const clinicsData = await clinicService.getClinics();
+      setClinics(clinicsData);
+    } catch (error) {
+      console.error('Klinikler yüklenirken hata:', error);
+    } finally {
+      setLoadingClinics(false);
+    }
+  };
+
+  // Modal açıldığında klinikleri yükle
+  useEffect(() => {
+    if (isEditModalVisible) {
+      loadClinics();
+    }
+  }, [isEditModalVisible]);
+
+  // Profil ekranı açıldığında klinikleri yükle (veteriner rolü için)
+  useEffect(() => {
+    if (user?.role === 'veteriner') {
+      loadClinics();
+    }
+  }, [user?.role]);
+
+  const getSelectedClinicName = () => {
+    if (!formData.clinicId) return 'Klinik Seçin';
+    const clinic = clinics.find(c => c.id === formData.clinicId);
+    return clinic ? clinic.name : 'Klinik Seçin';
+  };
+
+  const handleAddClinic = async () => {
+    if (!newClinicData.name || !newClinicData.address || !newClinicData.phone) {
+      Alert.alert('Hata', 'Lütfen gerekli alanları doldurun');
+      return;
+    }
+
+    try {
+      const newClinic = await clinicService.createClinic({
+        name: newClinicData.name,
+        address: {
+          street: newClinicData.address,
+          city: '',
+          state: '',
+          zipCode: '',
+          country: 'Türkiye',
+        },
+        phone: newClinicData.phone,
+        email: newClinicData.email,
+        description: '',
+        services: [],
+        facilities: [],
+        emergencyService: false,
+        isOpen24Hours: false,
+        location: { latitude: 0, longitude: 0 },
+      });
+
+      setClinics([...clinics, newClinic]);
+      setFormData({ ...formData, clinicId: newClinic.id! });
+      setShowAddClinicModal(false);
+      setNewClinicData({ name: '', address: '', phone: '', email: '' });
+      Alert.alert('Başarılı', 'Klinik başarıyla eklendi');
+    } catch (error) {
+      console.error('Klinik ekleme hatası:', error);
+      Alert.alert('Hata', 'Klinik eklenirken hata oluştu');
+    }
+  };
 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
@@ -68,6 +152,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
       return;
     }
 
+    // Veteriner rolü seçildiyse klinik kontrolü yap
+    if (formData.role === 'veteriner' && !formData.clinicId) {
+      Alert.alert('Hata', 'Veteriner rolü için klinik seçimi zorunludur.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       console.log('ProfileScreen: Profil güncelleme başlatılıyor...');
@@ -88,9 +178,44 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         name: formData.name.trim(),
         email: formData.email.trim(),
         role: formData.role,
+        clinicId: formData.role === 'veteriner' ? formData.clinicId : undefined,
       });
 
       console.log('ProfileScreen: Firestore güncelleme başarılı');
+
+      // Eğer kullanıcı veteriner rolüne geçiyorsa, veterinarians collection'ına kayıt ekle
+      if (formData.role === 'veteriner' && formData.clinicId) {
+        try {
+          const selectedClinic = clinics.find(c => c.id === formData.clinicId);
+          if (selectedClinic) {
+            await veterinarianService.createVeterinarian({
+              userId: user.id, // Kullanıcı ID'sini ekle
+              name: formData.name.trim(),
+              email: formData.email.trim(),
+              phone: '', // Varsayılan boş telefon
+              clinicId: formData.clinicId,
+              specialization: ['Genel Veterinerlik'], // Varsayılan uzmanlık
+              experience: 0, // Varsayılan deneyim
+              education: 'Veteriner Fakültesi', // Varsayılan eğitim
+              licenseNumber: 'VET-' + user.id.substring(0, 8), // Varsayılan lisans numarası
+              workingHours: {
+                monday: { start: '09:00', end: '18:00', isWorking: true },
+                tuesday: { start: '09:00', end: '18:00', isWorking: true },
+                wednesday: { start: '09:00', end: '18:00', isWorking: true },
+                thursday: { start: '09:00', end: '18:00', isWorking: true },
+                friday: { start: '09:00', end: '18:00', isWorking: true },
+                saturday: { start: '09:00', end: '16:00', isWorking: true },
+                sunday: { start: '00:00', end: '00:00', isWorking: false },
+              },
+            });
+            console.log('ProfileScreen: Veteriner kaydı oluşturuldu');
+          }
+        } catch (veterinarianError) {
+          console.error('ProfileScreen: Veteriner kaydı oluşturma hatası:', veterinarianError);
+          // Veteriner kaydı oluşturulamazsa kullanıcıya bilgi ver ama işlemi durdurma
+          Alert.alert('Uyarı', 'Veteriner kaydı oluşturulamadı, ancak profil güncellendi.');
+        }
+      }
 
       // Auth context'teki kullanıcı bilgilerini güncelle
       if (updateUser) {
@@ -99,6 +224,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           name: formData.name.trim(),
           email: formData.email.trim(),
           role: formData.role,
+          clinicId: formData.role === 'veteriner' ? formData.clinicId : undefined,
         };
         updateUser(updatedUserData);
         console.log('ProfileScreen: Auth context güncellendi:', updatedUserData);
@@ -144,6 +270,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
       name: user?.name || '',
       email: user?.email || '',
       role: user?.role || 'hayvan_sahibi',
+      clinicId: user?.clinicId || '',
     };
     console.log('ProfileScreen: Modal açılıyor, form verileri:', currentFormData);
     setFormData(currentFormData);
@@ -187,6 +314,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
               <Text style={styles.infoLabel}>Rol</Text>
               <Text style={styles.infoValue}>{getRoleDisplayName(user?.role || '')}</Text>
             </View>
+
+            {user?.role === 'veteriner' && user?.clinicId && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Klinik</Text>
+                <Text style={styles.infoValue}>
+                  {clinics.find(c => c.id === user.clinicId)?.name || 'Klinik bilgisi yükleniyor...'}
+                </Text>
+              </View>
+            )}
           </View>
 
           <Button
@@ -250,7 +386,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                     <TouchableOpacity
                       style={styles.dropdownItem}
                       onPress={() => {
-                        setFormData({ ...formData, role: 'veteriner' });
+                        setFormData({ ...formData, role: 'veteriner', clinicId: '' });
                         setShowRoleDropdown(false);
                       }}
                     >
@@ -259,7 +395,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                     <TouchableOpacity
                       style={styles.dropdownItem}
                       onPress={() => {
-                        setFormData({ ...formData, role: 'hayvan_sahibi' });
+                        setFormData({ ...formData, role: 'hayvan_sahibi', clinicId: '' });
                         setShowRoleDropdown(false);
                       }}
                     >
@@ -268,6 +404,58 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                   </View>
                 )}
               </View>
+
+              {/* Klinik Seçimi - Sadece Veteriner rolü seçildiğinde göster */}
+              {formData.role === 'veteriner' && (
+                <View style={styles.roleContainer}>
+                  <Text style={styles.roleLabel}>Klinik</Text>
+                  <TouchableOpacity
+                    style={styles.dropdownButton}
+                    onPress={() => setShowClinicDropdown(!showClinicDropdown)}
+                  >
+                    <Text style={styles.dropdownButtonText}>
+                      {getSelectedClinicName()}
+                    </Text>
+                    <Text style={styles.dropdownArrow}>{showClinicDropdown ? '▲' : '▼'}</Text>
+                  </TouchableOpacity>
+                  
+                  {showClinicDropdown && (
+                    <View style={styles.dropdownList}>
+                      {loadingClinics ? (
+                        <View style={styles.loadingItem}>
+                          <Text style={styles.loadingText}>Klinikler yükleniyor...</Text>
+                        </View>
+                      ) : (
+                        <>
+                          {clinics.map((clinic) => (
+                            <TouchableOpacity
+                              key={clinic.id}
+                              style={styles.dropdownItem}
+                              onPress={() => {
+                                setFormData({ ...formData, clinicId: clinic.id! });
+                                setShowClinicDropdown(false);
+                              }}
+                            >
+                              <Text style={styles.dropdownItemText}>{clinic.name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                          <TouchableOpacity
+                            style={[styles.dropdownItem, styles.addClinicItem]}
+                            onPress={() => {
+                              setShowClinicDropdown(false);
+                              setShowAddClinicModal(true);
+                            }}
+                          >
+                            <Text style={[styles.dropdownItemText, styles.addClinicText]}>
+                              + Yeni Klinik Ekle
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  )}
+                </View>
+              )}
 
               <View style={styles.modalButtons}>
                 <Button
@@ -281,6 +469,71 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
                   onPress={handleUpdateProfile}
                   style={styles.saveButton}
                   loading={isLoading}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Clinic Modal */}
+      <Modal
+        visible={showAddClinicModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddClinicModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Yeni Klinik Ekle</Text>
+              <TouchableOpacity
+                onPress={() => setShowAddClinicModal(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formContainer}>
+              <Input
+                label="Klinik Adı"
+                value={newClinicData.name}
+                onChangeText={(text) => setNewClinicData({ ...newClinicData, name: text })}
+                placeholder="Klinik adını girin"
+              />
+              <Input
+                label="Adres"
+                value={newClinicData.address}
+                onChangeText={(text) => setNewClinicData({ ...newClinicData, address: text })}
+                placeholder="Klinik adresini girin"
+              />
+              <Input
+                label="Telefon"
+                value={newClinicData.phone}
+                onChangeText={(text) => setNewClinicData({ ...newClinicData, phone: text })}
+                placeholder="Telefon numarasını girin"
+                keyboardType="phone-pad"
+              />
+              <Input
+                label="E-posta"
+                value={newClinicData.email}
+                onChangeText={(text) => setNewClinicData({ ...newClinicData, email: text })}
+                placeholder="E-posta adresini girin"
+                keyboardType="email-address"
+              />
+
+              <View style={styles.modalButtons}>
+                <Button
+                  title="İptal"
+                  onPress={() => setShowAddClinicModal(false)}
+                  style={styles.cancelButton}
+                  variant="secondary"
+                />
+                <Button
+                  title="Ekle"
+                  onPress={handleAddClinic}
+                  style={styles.saveButton}
                 />
               </View>
             </View>
@@ -455,6 +708,25 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     fontSize: 16,
     color: '#1A1A1A',
+  },
+  loadingItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666666',
+    fontStyle: 'italic',
+  },
+  addClinicItem: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    backgroundColor: '#F8F9FA',
+  },
+  addClinicText: {
+    color: '#007AFF',
+    fontWeight: '600',
   },
   modalButtons: {
     flexDirection: 'row',

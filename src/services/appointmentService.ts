@@ -52,16 +52,23 @@ class AppointmentServiceImpl {
       
       const snapshot = await this.getAppointmentsCollection()
         .where('userId', '==', userId)
-        .orderBy('date', 'desc')
-        .orderBy('time', 'desc')
         .get();
 
-      return snapshot.docs.map(doc => ({
+      // Client-side sorting
+      const appointments = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt.toDate(),
         updatedAt: doc.data().updatedAt.toDate(),
       })) as Appointment[];
+
+      // Tarihe göre azalan sıralama (en yeni önce)
+      return appointments.sort((a, b) => {
+        const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateComparison !== 0) return dateComparison;
+        // Aynı tarihse saate göre azalan sıralama
+        return b.time.localeCompare(a.time);
+      });
     } catch (error) {
       console.error('Kullanıcı randevuları alma hatası:', error);
       throw new Error('Randevular alınırken hata oluştu');
@@ -129,16 +136,23 @@ class AppointmentServiceImpl {
     try {
       const snapshot = await this.getAppointmentsCollection()
         .where('veterinarianId', '==', veterinarianId)
-        .orderBy('date', 'asc')
-        .orderBy('time', 'asc')
         .get();
 
-      return snapshot.docs.map(doc => ({
+      // Client-side sorting
+      const appointments = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt.toDate(),
         updatedAt: doc.data().updatedAt.toDate(),
       })) as Appointment[];
+
+      // Tarihe göre artan sıralama (en eski önce)
+      return appointments.sort((a, b) => {
+        const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+        if (dateComparison !== 0) return dateComparison;
+        // Aynı tarihse saate göre artan sıralama
+        return a.time.localeCompare(b.time);
+      });
     } catch (error) {
       console.error('Veteriner randevuları alma hatası:', error);
       throw new Error('Veteriner randevuları alınırken hata oluştu');
@@ -149,16 +163,23 @@ class AppointmentServiceImpl {
     try {
       const snapshot = await this.getAppointmentsCollection()
         .where('clinicId', '==', clinicId)
-        .orderBy('date', 'asc')
-        .orderBy('time', 'asc')
         .get();
 
-      return snapshot.docs.map(doc => ({
+      // Client-side sorting
+      const appointments = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt.toDate(),
         updatedAt: doc.data().updatedAt.toDate(),
       })) as Appointment[];
+
+      // Tarihe göre artan sıralama (en eski önce)
+      return appointments.sort((a, b) => {
+        const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+        if (dateComparison !== 0) return dateComparison;
+        // Aynı tarihse saate göre artan sıralama
+        return a.time.localeCompare(b.time);
+      });
     } catch (error) {
       console.error('Klinik randevuları alma hatası:', error);
       throw new Error('Klinik randevuları alınırken hata oluştu');
@@ -171,10 +192,15 @@ class AppointmentServiceImpl {
         .where('veterinarianId', '==', veterinarianId)
         .where('date', '==', date)
         .where('time', '==', time)
-        .where('status', 'in', ['pending', 'confirmed'])
         .get();
 
-      return snapshot.empty; // Eğer hiç randevu yoksa müsait
+      // Client-side filtering for status
+      const conflictingAppointments = snapshot.docs.filter(doc => {
+        const data = doc.data();
+        return data.status === 'pending' || data.status === 'confirmed';
+      });
+
+      return conflictingAppointments.length === 0; // Eğer hiç randevu yoksa müsait
     } catch (error) {
       console.error('Müsaitlik kontrolü hatası:', error);
       throw new Error('Müsaitlik kontrol edilirken hata oluştu');

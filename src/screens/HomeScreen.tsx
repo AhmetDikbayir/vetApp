@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/Button';
 import AppointmentModal from '../components/AppointmentModal';
+import AppointmentsModal from '../components/AppointmentsModal';
 import { styles } from '../styles/homeScreenStyles';
 
 interface HomeScreenProps {
@@ -22,6 +23,7 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNavigateToProfile }) => {
   const { user, signOut } = useAuth();
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showAppointmentsModal, setShowAppointmentsModal] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -42,6 +44,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
     setShowAppointmentModal(true);
   };
 
+  const handleAppointmentsPress = () => {
+    setShowAppointmentsModal(true);
+  };
+
   const handleAppointmentConfirm = (appointmentData: any) => {
     console.log('Randevu alındı:', appointmentData);
     
@@ -59,7 +65,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
     Alert.alert(
       'Randevu Başarılı!',
       `${clinic.name}\n${veterinarian.name}\n${pet.name}\n${formattedDate} - ${appointment.time}\n\nRandevunuz başarıyla oluşturuldu.`,
-      [{ text: 'Tamam', style: 'default' }]
+      [{ 
+        text: 'Tamam', 
+        style: 'default',
+        onPress: () => {
+          // Randevu oluşturulduktan sonra randevular listesini yenile
+          if (showAppointmentsModal) {
+            // Eğer randevular modalı açıksa, yenile
+            setShowAppointmentsModal(false);
+            setTimeout(() => setShowAppointmentsModal(true), 100);
+          }
+        }
+      }]
     );
   };
 
@@ -91,6 +108,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
               </Text>
             </TouchableOpacity>
 
+            <TouchableOpacity style={styles.serviceCard} onPress={handleAppointmentsPress}>
+              <Text style={styles.serviceTitle}>📋 Randevularım</Text>
+              <Text style={styles.serviceDescription}>
+                Mevcut randevularınızı görüntüleyin ve yönetin
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.serviceCard}>
               <Text style={styles.serviceTitle}>🏥 Acil Durum</Text>
               <Text style={styles.serviceDescription}>
@@ -115,11 +139,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
         />
       </ScrollView>
 
-      <AppointmentModal
-        visible={showAppointmentModal}
-        onClose={() => setShowAppointmentModal(false)}
-        onConfirm={handleAppointmentConfirm}
-      />
+              <AppointmentModal
+          visible={showAppointmentModal}
+          onClose={() => setShowAppointmentModal(false)}
+          onConfirm={handleAppointmentConfirm}
+        />
+        <AppointmentsModal
+          visible={showAppointmentsModal}
+          onClose={() => setShowAppointmentsModal(false)}
+        />
     </SafeAreaView>
   );
 };

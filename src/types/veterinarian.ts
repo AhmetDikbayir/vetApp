@@ -1,5 +1,6 @@
 export interface Veterinarian {
   id?: string;
+  userId?: string; // Kullanıcı ID'si
   name: string;
   email: string;
   phone: string;
@@ -26,6 +27,7 @@ export interface Veterinarian {
 }
 
 export interface CreateVeterinarianData {
+  userId?: string; // Kullanıcı ID'si
   name: string;
   email: string;
   phone: string;
