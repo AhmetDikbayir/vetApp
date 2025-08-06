@@ -17,6 +17,7 @@ import { Appointment } from '../types/appointment';
 import { Clinic } from '../types/clinic';
 import { Veterinarian } from '../types/veterinarian';
 import { Pet } from '../types/pet';
+import { useAuth } from '../hooks/useAuth';
 
 interface AppointmentsModalProps {
   visible: boolean;
@@ -27,6 +28,7 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
@@ -42,17 +44,33 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
   const loadAppointments = async () => {
     setLoading(true);
     try {
-      const [appointmentsData, clinicsData, veterinariansData, petsData] = await Promise.all([
-        appointmentService.getUserAppointments(),
+      // Önce gerekli verileri yükle
+      const [clinicsData, veterinariansData, petsData] = await Promise.all([
         clinicService.getClinics(),
         veterinarianService.getVeterinarians(),
         petService.getPets(),
       ]);
       
-      setAppointments(appointmentsData);
       setClinics(clinicsData);
       setVeterinarians(veterinariansData);
       setPets(petsData);
+      
+      let appointmentsData: Appointment[];
+      
+      if (user?.role === 'veteriner') {
+        // Veteriner için: kendisine gelen randevuları getir
+        const currentVeterinarian = veterinariansData.find(v => v.userId === user.id);
+        if (currentVeterinarian) {
+          appointmentsData = await appointmentService.getVeterinarianAppointments(currentVeterinarian.id!);
+        } else {
+          appointmentsData = [];
+        }
+      } else {
+        // Hayvan sahibi için: kendi randevularını getir
+        appointmentsData = await appointmentService.getUserAppointments();
+      }
+      
+      setAppointments(appointmentsData);
     } catch (error) {
       console.error('Randevular yüklenirken hata:', error);
       Alert.alert('Hata', 'Randevular yüklenirken bir hata oluştu');
@@ -74,6 +92,12 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
   const getPetName = (petId: string) => {
     const pet = pets.find(p => p.id === petId);
     return pet?.name || 'Bilinmeyen Hayvan';
+  };
+
+  const getUserName = (userId: string) => {
+    // Randevu verisinde hasta sahibinin email'i var, onu kullanabiliriz
+    // Şimdilik sadece "Hasta Sahibi" olarak gösterelim
+    return 'Hasta Sahibi';
   };
 
   const getStatusText = (status: string) => {
@@ -159,6 +183,54 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
     );
   };
 
+  const handleConfirmAppointment = async (appointmentId: string) => {
+    Alert.alert(
+      'Randevu Onayı',
+      'Bu randevuyu onaylamak istediğinizden emin misiniz?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Onayla',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await appointmentService.confirmAppointment(appointmentId);
+              Alert.alert('Başarılı', 'Randevu onaylandı');
+              loadAppointments(); // Listeyi yenile
+            } catch (error) {
+              console.error('Randevu onay hatası:', error);
+              Alert.alert('Hata', 'Randevu onaylanırken bir hata oluştu');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRejectAppointment = async (appointmentId: string) => {
+    Alert.alert(
+      'Randevu Reddi',
+      'Bu randevuyu reddetmek istediğinizden emin misiniz?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Reddet',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await appointmentService.rejectAppointment(appointmentId);
+              Alert.alert('Başarılı', 'Randevu reddedildi');
+              loadAppointments(); // Listeyi yenile
+            } catch (error) {
+              console.error('Randevu red hatası:', error);
+              Alert.alert('Hata', 'Randevu reddedilirken bir hata oluştu');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Modal
       visible={visible}
@@ -169,7 +241,9 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <View style={styles.header}>
-            <Text style={styles.title}>Randevularım</Text>
+            <Text style={styles.title}>
+              {user?.role === 'veteriner' ? 'Gelen Randevular' : 'Randevularım'}
+            </Text>
             <View style={styles.headerButtons}>
               <TouchableOpacity onPress={loadAppointments} style={styles.refreshButton}>
                 <Text style={styles.refreshButtonText}>🔄</Text>
@@ -188,9 +262,14 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
               </View>
             ) : appointments.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Henüz randevunuz bulunmuyor</Text>
+                <Text style={styles.emptyText}>
+                  {user?.role === 'veteriner' ? 'Henüz gelen randevunuz bulunmuyor' : 'Henüz randevunuz bulunmuyor'}
+                </Text>
                 <Text style={styles.emptySubtext}>
-                  Randevu almak için ana ekrandaki "Randevu Al" butonunu kullanın
+                  {user?.role === 'veteriner' 
+                    ? 'Hastalarınız randevu aldığında burada görünecek'
+                    : 'Randevu almak için ana ekrandaki "Randevu Al" butonunu kullanın'
+                  }
                 </Text>
               </View>
             ) : (
@@ -216,6 +295,12 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
                       <Text style={styles.detailLabel}>Hayvan: </Text>
                       {getPetName(appointment.petId)}
                     </Text>
+                    {user?.role === 'veteriner' && (
+                      <Text style={styles.detailText}>
+                        <Text style={styles.detailLabel}>Hasta Sahibi: </Text>
+                        {getUserName(appointment.userId)}
+                      </Text>
+                    )}
                                          <Text style={styles.detailText}>
                        <Text style={styles.detailLabel}>Tür: </Text>
                        {getAppointmentTypeText(appointment.type)}
@@ -235,13 +320,34 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
                       </Text>
                     </View>
                     
-                    {appointment.status === 'pending' && (
-                      <TouchableOpacity
-                        style={styles.cancelButton}
-                        onPress={() => handleCancelAppointment(appointment.id!)}
-                      >
-                        <Text style={styles.cancelButtonText}>İptal Et</Text>
-                      </TouchableOpacity>
+                    {user?.role === 'veteriner' ? (
+                      // Veteriner için onay/red butonları
+                      appointment.status === 'pending' && (
+                        <View style={styles.veterinarianButtons}>
+                          <TouchableOpacity
+                            style={styles.confirmButton}
+                            onPress={() => handleConfirmAppointment(appointment.id!)}
+                          >
+                            <Text style={styles.confirmButtonText}>Onayla</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.rejectButton}
+                            onPress={() => handleRejectAppointment(appointment.id!)}
+                          >
+                            <Text style={styles.rejectButtonText}>Reddet</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )
+                    ) : (
+                      // Hayvan sahibi için iptal butonu
+                      appointment.status === 'pending' && (
+                        <TouchableOpacity
+                          style={styles.cancelButton}
+                          onPress={() => handleCancelAppointment(appointment.id!)}
+                        >
+                          <Text style={styles.cancelButtonText}>İptal Et</Text>
+                        </TouchableOpacity>
+                      )
                     )}
                   </View>
                 </View>
@@ -402,6 +508,32 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+  },
+  veterinarianButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  confirmButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+  },
+  confirmButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+  },
+  rejectButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F44336',
+    borderRadius: 8,
+  },
+  rejectButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: 'white',

@@ -3,6 +3,9 @@ import { AuthProvider } from './src/context/AuthContext';
 import { StatusBar } from 'react-native';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { View, Text, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { notificationService } from './src/models/NotificationService';
+import { auth } from './src/firebase';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -36,7 +39,20 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+
 export default function App() {
+  React.useEffect(() => {
+    const init = async () => {
+      await notificationService.initialize();
+      // Kullanıcı giriş yaptığında
+      const user = auth().currentUser;
+      if (user) {
+        await notificationService.setUserId(user.uid);
+      }
+    };
+    init();
+  }, []);
+
   return (
     <ErrorBoundary>
       <AuthProvider>

@@ -13,17 +13,22 @@ class AuthServiceImpl implements AuthService {
   private initializeGoogleSignIn(): void {
     GoogleSignin.configure({
       webClientId: '257645513339-r7b61cdkuvttfp71nb61pvcoserjb9d7.apps.googleusercontent.com',
+      offlineAccess: true,
     });
   }
 
   async signInWithGoogle(): Promise<User> {
     console.log("Google Sign-In başladı");
     try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      // Google Play Services kontrolü
+      await GoogleSignin.hasPlayServices();
+      console.log('Google Play Services kontrolü başarılı');
   
+      // Google Sign-In işlemi
       const userInfo = await GoogleSignin.signIn();
       console.log('Google Sign-In userInfo:', userInfo);
   
+      // ID Token al
       const { idToken } = await GoogleSignin.getTokens();
       console.log('Google Sign-In idToken alındı:', idToken ? 'Var' : 'Yok');
       
@@ -31,9 +36,11 @@ class AuthServiceImpl implements AuthService {
         throw new Error('Google ID token alınamadı');
       }
       
+      // Firebase credential oluştur
       const googleCredential = auth.GoogleAuthProvider.credential(idToken);
       console.log('Google credential oluşturuldu');
   
+      // Firebase ile giriş yap
       const firebaseUserCredential = await auth().signInWithCredential(googleCredential);
       console.log('Firebase giriş başarılı:', firebaseUserCredential.user.uid);
   
@@ -64,6 +71,8 @@ class AuthServiceImpl implements AuthService {
       
       if (error && typeof error === 'object' && 'code' in error) {
         const errorCode = (error as any).code;
+        console.log('Google Sign-In hata kodu:', errorCode);
+        
         switch (errorCode) {
           case '12500':
             errorMessage = 'Google Sign-In yapılandırması geçersiz. Lütfen tekrar deneyin.';
@@ -72,16 +81,29 @@ class AuthServiceImpl implements AuthService {
             errorMessage = 'Giriş işlemi iptal edildi';
             break;
           case '7':
-            errorMessage = 'Ağ bağlantı sorunu';
+            errorMessage = 'Ağ bağlantı sorunu. İnternet bağlantınızı kontrol edin.';
             break;
           case '10':
-            errorMessage = 'Google yapılandırması geçersiz';
+            errorMessage = 'Google yapılandırması geçersiz. Uygulamayı yeniden başlatın.';
             break;
           case '16':
             errorMessage = 'Zaten giriş yaptınız';
             break;
+          case 'SIGN_IN_CANCELLED':
+            errorMessage = 'Giriş işlemi iptal edildi';
+            break;
+          case 'SIGN_IN_REQUIRED':
+            errorMessage = 'Google hesabı seçimi gerekli';
+            break;
           default:
             errorMessage = `Google ile giriş başarısız (Kod: ${errorCode})`;
+        }
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        const errorMsg = (error as any).message;
+        if (errorMsg.includes('non-recoverable')) {
+          errorMessage = 'Google Sign-In hatası. Lütfen uygulamayı yeniden başlatın.';
+        } else if (errorMsg.includes('network')) {
+          errorMessage = 'Ağ bağlantı sorunu. İnternet bağlantınızı kontrol edin.';
         }
       }
       

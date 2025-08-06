@@ -3,10 +3,11 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { AddPetScreen } from '../screens/AddPetScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import NotificationTestScreen from '../screens/NotificationTestScreen';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuthContext } from '../context/AuthContext';
 
-type Screen = 'login' | 'home' | 'addPet' | 'profile';
+type Screen = 'login' | 'home' | 'addPet' | 'profile' | 'notificationTest';
 
 export const AppNavigator: React.FC = () => {
   const { user, isLoading } = useAuthContext();
@@ -25,11 +26,14 @@ export const AppNavigator: React.FC = () => {
       return <AddPetScreen onBack={() => setCurrentScreen('home')} />;
     case 'profile':
       return <ProfileScreen onBack={() => setCurrentScreen('home')} />;
+          case 'notificationTest':
+        return <NotificationTestScreen />;
     case 'home':
     default:
       return <HomeScreen 
         onNavigateToAddPet={() => setCurrentScreen('addPet')} 
         onNavigateToProfile={() => setCurrentScreen('profile')}
+        onNavigateToNotificationTest={() => setCurrentScreen('notificationTest')}
       />;
   }
 }; 

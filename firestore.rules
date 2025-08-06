@@ -5,9 +5,15 @@ service cloud.firestore {
     // Users collection - kullanıcılar sadece kendi verilerini okuyabilir/yazabilir
     match /users/{userId} {
       // Okuma izni: Döküman ID'si giriş yapan kullanıcı UID'si ile aynı olmalı
-      allow read: if request.auth != null && request.auth.uid == userId;
+      // FCM token için özel izin: Veterinerlerin FCM token'larına erişim
+      allow read: if request.auth != null && 
+        (request.auth.uid == userId || 
+         (resource.data.role == 'veteriner' && 
+          request.query.limit <= 1 && 
+          request.query.offset == 0));
       
       // Güncelleme izni: Döküman ID'si giriş yapan kullanıcı UID'si ile aynı olmalı
+      // FCM token güncellemesi için de izin ver
       allow update: if request.auth != null && request.auth.uid == userId;
       
       // Silme izni: Döküman ID'si giriş yapan kullanıcı UID'si ile aynı olmalı
@@ -38,10 +44,35 @@ service cloud.firestore {
       allow write: if request.auth != null; // Giriş yapmış kullanıcılar yazabilir
     }
     
-    // Appointments collection - kullanıcılar sadece kendi randevularını okuyabilir/yazabilir
+    // Appointments collection - randevu sahibi ve veteriner güncelleyebilir
     match /appointments/{appointmentId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Okuma: Randevu sahibi okuyabilir, veteriner de okuyabilir
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || 
+         resource.data.veterinarianId != null);
+      
+      // Güncelleme: Randevu sahibi ve veteriner güncelleyebilir
+      allow update: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || 
+         resource.data.veterinarianId != null);
+      
+      // Silme: Sadece randevu sahibi silebilir
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      
+      // Oluşturma: Giriş yapmış kullanıcılar oluşturabilir
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // FCM Tokens collection - herkes okuyabilir (bildirim göndermek için)
+    match /fcmTokens/{tokenId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == tokenId;
+    }
+    
+    // OneSignal Players collection - kullanıcılar kendi Player ID'lerini yazabilir, herkes okuyabilir
+    match /oneSignalPlayers/{userId} {
+      allow read: if request.auth != null; // Giriş yapmış kullanıcılar okuyabilir (bildirim göndermek için)
+      allow write: if request.auth != null && request.auth.uid == userId; // Kullanıcı sadece kendi Player ID'sini yazabilir
     }
     
     // Appointments collection için list izni - müsaitlik kontrolü için

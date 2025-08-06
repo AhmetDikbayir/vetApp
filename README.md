@@ -95,3 +95,84 @@ To learn more about React Native, take a look at the following resources:
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
 - [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+
+# VetApp Notification System
+
+Bu proje, veteriner randevu uygulaması için bildirim sistemi içerir.
+
+## OneSignal Kurulumu
+
+### 1. OneSignal Hesabı Oluşturma
+1. [OneSignal.com](https://onesignal.com) adresine gidin
+2. Ücretsiz hesap oluşturun
+3. Giriş yapın
+
+### 2. Yeni Uygulama Oluşturma
+1. Dashboard'da "New App" butonuna tıklayın
+2. Uygulama adını girin (örn: "VetApp")
+3. Platform seçin: **React Native**
+4. "Create App" butonuna tıklayın
+
+### 3. OneSignal App ID Alma
+1. Oluşturulan uygulamaya tıklayın
+2. Sol menüden **"Settings"** > **"Keys & IDs"** seçin
+3. **"OneSignal App ID"** değerini kopyalayın
+4. Bu değeri `src/services/oneSignalService.ts` dosyasındaki `ONESIGNAL_APP_ID` değişkenine yapıştırın
+
+### 4. REST API Key Alma
+1. Aynı **"Keys & IDs"** sayfasında
+2. **"REST API Key"** değerini kopyalayın
+3. Bu değeri `src/services/oneSignalService.ts` dosyasındaki `YOUR_REST_API_KEY` değişkenine yapıştırın
+
+### 5. Kod Güncelleme
+```typescript
+// src/services/oneSignalService.ts dosyasında:
+const ONESIGNAL_APP_ID = 'YOUR_ACTUAL_ONESIGNAL_APP_ID_HERE';
+const YOUR_REST_API_KEY = 'YOUR_ACTUAL_REST_API_KEY_HERE';
+```
+
+### 6. Firebase Console'da OneSignal Player ID'leri Saklama
+OneSignal Player ID'leri Firestore'da `oneSignalPlayers` koleksiyonunda saklanacak:
+```
+oneSignalPlayers/{userId}
+  - playerId: string
+  - userId: string
+  - createdAt: timestamp
+```
+
+## Test Etme
+
+1. Uygulamayı başlatın
+2. Veteriner hesabıyla giriş yapın
+3. Ana ekranda "🔔 OneSignal Test Ekranı" butonuna tıklayın
+4. Test ekranında:
+   - "🚀 OneSignal Başlat" - OneSignal'ı başlatır
+   - "🔍 Player ID Al" - Cihazın Player ID'sini alır
+   - "💾 Player ID Kaydet" - Player ID'yi Firestore'a kaydeder
+   - "🧪 Kendine Test Bildirimi" - Kendinize test bildirimi gönderir
+   - "📅 Randevu Test Bildirimi" - Randevu bildirimi test eder
+
+## Randevu Bildirimleri
+
+Yeni bir randevu oluşturulduğunda:
+1. Veterinerin OneSignal Player ID'si Firestore'dan alınır
+2. OneSignal REST API kullanılarak bildirim gönderilir
+3. Bildirim içeriği: "Yeni randevu talebi: {petName} - {date}"
+
+## Sorun Giderme
+
+### Bildirim Gelmiyor
+1. OneSignal App ID ve REST API Key'in doğru olduğundan emin olun
+2. Cihazın internet bağlantısını kontrol edin
+3. OneSignal Test Ekranından Player ID'nin kaydedildiğini kontrol edin
+
+### Player ID Alınamıyor
+1. OneSignal SDK'nın doğru başlatıldığından emin olun
+2. Bildirim izinlerinin verildiğini kontrol edin
+3. Cihazın OneSignal'a kayıtlı olduğunu doğrulayın
+
+## Geliştirme Notları
+
+- OneSignal SDK API'si sürekli güncellenmektedir
+- Mevcut implementasyon basitleştirilmiş test amaçlıdır
+- Production kullanımı için daha kapsamlı hata yönetimi gerekebilir

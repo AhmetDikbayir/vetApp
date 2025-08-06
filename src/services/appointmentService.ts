@@ -1,194 +1,133 @@
 import firestore from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth';
-import { Appointment, CreateAppointmentData } from '../types/appointment';
+import { eventManager } from '../events/EventManager';
+import { EVENT_NAMES, AppointmentCreatedEvent } from '../events/NotificationEvents';
+import { notificationService } from '../models/NotificationService';
 
-class AppointmentServiceImpl {
-  private getCurrentUserId(): string {
-    const user = auth().currentUser;
-    if (!user) {
-      throw new Error('Kullanıcı oturumu bulunamadı');
+export interface Appointment {
+  id: string;
+  petId: string;
+  petName: string;
+  ownerId: string;
+  ownerName: string;
+  veterinarianId: string;
+  veterinarianName?: string;
+  clinicId?: string;
+  clinicName?: string;
+  date: string;
+  time: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export class AppointmentService {
+  private static instance: AppointmentService;
+
+  private constructor() {
+    // Event listener'ları kur
+    this.setupEventListeners();
+  }
+
+  static getInstance(): AppointmentService {
+    if (!AppointmentService.instance) {
+      AppointmentService.instance = new AppointmentService();
     }
-    return user.uid;
+    return AppointmentService.instance;
   }
 
-  private getAppointmentsCollection() {
-    return firestore().collection('appointments');
+  private setupEventListeners(): void {
+    // Randevu oluşturulduğunda bildirim gönder
+    eventManager.addEventListener<AppointmentCreatedEvent>(
+      EVENT_NAMES.APPOINTMENT_CREATED,
+      async (event) => {
+        console.log('📅 Randevu oluşturuldu, bildirim gönderiliyor:', event);
+        await notificationService.sendAppointmentNotification(event);
+      }
+    );
   }
 
-  async createAppointment(appointmentData: CreateAppointmentData): Promise<Appointment> {
+  async createAppointment(appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     try {
-      const userId = this.getCurrentUserId();
-      const now = firestore.Timestamp.now();
-      
-      const firestoreData = {
-        userId,
+      const appointment: Omit<Appointment, 'id'> = {
         ...appointmentData,
-        status: 'pending',
-        paymentStatus: 'pending',
-        createdAt: now,
-        updatedAt: now,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
-      const docRef = await this.getAppointmentsCollection().add(firestoreData);
-      
-      return {
-        id: docRef.id,
-        userId,
-        ...appointmentData,
-        status: 'pending',
-        paymentStatus: 'pending',
-        createdAt: now.toDate(),
-        updatedAt: now.toDate(),
+      const docRef = await firestore()
+        .collection('appointments')
+        .add(appointment);
+
+      const appointmentId = docRef.id;
+
+      // Event emit et
+      const appointmentEvent: AppointmentCreatedEvent = {
+        appointmentId,
+        petName: appointmentData.petName,
+        ownerName: appointmentData.ownerName,
+        veterinarianId: appointmentData.veterinarianId,
+        appointmentDate: appointmentData.date,
+        appointmentTime: appointmentData.time,
+        clinicName: appointmentData.clinicName
       };
+
+      eventManager.emit(EVENT_NAMES.APPOINTMENT_CREATED, appointmentEvent);
+
+      console.log('✅ Randevu oluşturuldu:', appointmentId);
+      return appointmentId;
+
     } catch (error) {
-      console.error('Appointment oluşturma hatası:', error);
-      throw new Error('Randevu oluşturulurken hata oluştu');
+      console.error('❌ Randevu oluşturulamadı:', error);
+      throw error;
     }
   }
 
-  async getUserAppointments(): Promise<Appointment[]> {
+  async getAppointmentsByUserId(userId: string, userType: 'owner' | 'veterinarian'): Promise<Appointment[]> {
     try {
-      const userId = this.getCurrentUserId();
-      
-      const snapshot = await this.getAppointmentsCollection()
-        .where('userId', '==', userId)
-        .get();
+      const collectionRef = firestore().collection('appointments');
+      let query: any = collectionRef;
 
-      // Client-side sorting
-      const appointments = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
-      })) as Appointment[];
-
-      // Tarihe göre azalan sıralama (en yeni önce)
-      return appointments.sort((a, b) => {
-        const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
-        if (dateComparison !== 0) return dateComparison;
-        // Aynı tarihse saate göre azalan sıralama
-        return b.time.localeCompare(a.time);
-      });
-    } catch (error) {
-      console.error('Kullanıcı randevuları alma hatası:', error);
-      throw new Error('Randevular alınırken hata oluştu');
-    }
-  }
-
-  async getAppointmentById(appointmentId: string): Promise<Appointment | null> {
-    try {
-      const userId = this.getCurrentUserId();
-      
-      const doc = await this.getAppointmentsCollection().doc(appointmentId).get();
-      
-      if (!doc.exists) {
-        return null;
+      if (userType === 'owner') {
+        query = collectionRef.where('ownerId', '==', userId);
+      } else {
+        query = collectionRef.where('veterinarianId', '==', userId);
       }
 
-      const data = doc.data();
-      if (data?.userId !== userId) {
-        throw new Error('Bu randevuya erişim izniniz yok');
-      }
-
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt.toDate(),
-        updatedAt: data.updatedAt.toDate(),
-      } as Appointment;
-    } catch (error) {
-      console.error('Appointment alma hatası:', error);
-      throw new Error('Randevu bilgisi alınırken hata oluştu');
-    }
-  }
-
-  async updateAppointment(appointmentId: string, updates: Partial<Appointment>): Promise<void> {
-    try {
-      const userId = this.getCurrentUserId();
-      const now = firestore.Timestamp.now();
+      const snapshot = await query.orderBy('createdAt', 'desc').get();
       
-      // Kullanıcının bu randevuya sahip olduğunu kontrol et
-      const doc = await this.getAppointmentsCollection().doc(appointmentId).get();
-      if (!doc.exists || doc.data()?.userId !== userId) {
-        throw new Error('Bu randevuya erişim izniniz yok');
-      }
-      
-      await this.getAppointmentsCollection().doc(appointmentId).update({
-        ...updates,
-        updatedAt: now,
-      });
-    } catch (error) {
-      console.error('Appointment güncelleme hatası:', error);
-      throw new Error('Randevu güncellenirken hata oluştu');
-    }
-  }
-
-  async cancelAppointment(appointmentId: string): Promise<void> {
-    try {
-      await this.updateAppointment(appointmentId, { status: 'cancelled' });
-    } catch (error) {
-      console.error('Appointment iptal hatası:', error);
-      throw new Error('Randevu iptal edilirken hata oluştu');
-    }
-  }
-
-  async getVeterinarianAppointments(veterinarianId: string): Promise<Appointment[]> {
-    try {
-      const snapshot = await this.getAppointmentsCollection()
-        .where('veterinarianId', '==', veterinarianId)
-        .get();
-
-      // Client-side sorting
-      const appointments = snapshot.docs.map(doc => ({
+      return snapshot.docs.map((doc: any) => ({
         id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
+        ...doc.data()
       })) as Appointment[];
 
-      // Tarihe göre artan sıralama (en eski önce)
-      return appointments.sort((a, b) => {
-        const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-        if (dateComparison !== 0) return dateComparison;
-        // Aynı tarihse saate göre artan sıralama
-        return a.time.localeCompare(b.time);
-      });
     } catch (error) {
-      console.error('Veteriner randevuları alma hatası:', error);
-      throw new Error('Veteriner randevuları alınırken hata oluştu');
+      console.error('❌ Randevular alınamadı:', error);
+      throw error;
     }
   }
 
-  async getClinicAppointments(clinicId: string): Promise<Appointment[]> {
+  async updateAppointmentStatus(appointmentId: string, status: Appointment['status']): Promise<void> {
     try {
-      const snapshot = await this.getAppointmentsCollection()
-        .where('clinicId', '==', clinicId)
-        .get();
+      await firestore()
+        .collection('appointments')
+        .doc(appointmentId)
+        .update({
+          status,
+          updatedAt: new Date()
+        });
 
-      // Client-side sorting
-      const appointments = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate(),
-        updatedAt: doc.data().updatedAt.toDate(),
-      })) as Appointment[];
-
-      // Tarihe göre artan sıralama (en eski önce)
-      return appointments.sort((a, b) => {
-        const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-        if (dateComparison !== 0) return dateComparison;
-        // Aynı tarihse saate göre artan sıralama
-        return a.time.localeCompare(b.time);
-      });
+      console.log('✅ Randevu durumu güncellendi:', appointmentId, status);
     } catch (error) {
-      console.error('Klinik randevuları alma hatası:', error);
-      throw new Error('Klinik randevuları alınırken hata oluştu');
+      console.error('❌ Randevu durumu güncellenemedi:', error);
+      throw error;
     }
   }
 
   async checkAvailability(veterinarianId: string, date: string, time: string): Promise<boolean> {
     try {
-      const snapshot = await this.getAppointmentsCollection()
+      const snapshot = await firestore()
+        .collection('appointments')
         .where('veterinarianId', '==', veterinarianId)
         .where('date', '==', date)
         .where('time', '==', time)
@@ -202,10 +141,24 @@ class AppointmentServiceImpl {
 
       return conflictingAppointments.length === 0; // Eğer hiç randevu yoksa müsait
     } catch (error) {
-      console.error('Müsaitlik kontrolü hatası:', error);
-      throw new Error('Müsaitlik kontrol edilirken hata oluştu');
+      console.error('❌ Müsaitlik kontrolü yapılamadı:', error);
+      throw error;
+    }
+  }
+
+  async deleteAppointment(appointmentId: string): Promise<void> {
+    try {
+      await firestore()
+        .collection('appointments')
+        .doc(appointmentId)
+        .delete();
+
+      console.log('✅ Randevu silindi:', appointmentId);
+    } catch (error) {
+      console.error('❌ Randevu silinemedi:', error);
+      throw error;
     }
   }
 }
 
-export const appointmentService = new AppointmentServiceImpl(); 
+export const appointmentService = AppointmentService.getInstance(); 
