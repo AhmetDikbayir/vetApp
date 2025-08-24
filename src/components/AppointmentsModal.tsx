@@ -22,11 +22,14 @@ import { useAuth } from '../hooks/useAuth';
 interface AppointmentsModalProps {
   visible: boolean;
   onClose: () => void;
+  userRole?: string;
+
 }
 
 const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
   visible,
   onClose,
+  userRole,
 }) => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -44,33 +47,31 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
   const loadAppointments = async () => {
     setLoading(true);
     try {
-      // Önce gerekli verileri yükle
+
+      let appointmentsData: Appointment[];
+      
+      // Veteriner kontrolü - hem userRole hem de user.role kontrolü
+      const isVeterinarian = userRole === 'veteriner' || user?.role === 'veteriner';
+      
+      if (isVeterinarian && user?.id) {
+        // Veteriner için kendi randevularını yükle
+        appointmentsData = await appointmentService.getVeterinarianAppointments(user.id);
+      } else {
+        // Hayvan sahibi için kendi randevularını yükle
+        appointmentsData = await appointmentService.getUserAppointments();
+      }
+
       const [clinicsData, veterinariansData, petsData] = await Promise.all([
         clinicService.getClinics(),
         veterinarianService.getVeterinarians(),
         petService.getPets(),
       ]);
       
+
+      setAppointments(appointmentsData);
       setClinics(clinicsData);
       setVeterinarians(veterinariansData);
       setPets(petsData);
-      
-      let appointmentsData: Appointment[];
-      
-      if (user?.role === 'veteriner') {
-        // Veteriner için: kendisine gelen randevuları getir
-        const currentVeterinarian = veterinariansData.find(v => v.userId === user.id);
-        if (currentVeterinarian) {
-          appointmentsData = await appointmentService.getVeterinarianAppointments(currentVeterinarian.id!);
-        } else {
-          appointmentsData = [];
-        }
-      } else {
-        // Hayvan sahibi için: kendi randevularını getir
-        appointmentsData = await appointmentService.getUserAppointments();
-      }
-      
-      setAppointments(appointmentsData);
     } catch (error) {
       console.error('Randevular yüklenirken hata:', error);
       Alert.alert('Hata', 'Randevular yüklenirken bir hata oluştu');
@@ -94,11 +95,6 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
     return pet?.name || 'Bilinmeyen Hayvan';
   };
 
-  const getUserName = (userId: string) => {
-    // Randevu verisinde hasta sahibinin email'i var, onu kullanabiliriz
-    // Şimdilik sadece "Hasta Sahibi" olarak gösterelim
-    return 'Hasta Sahibi';
-  };
 
   const getStatusText = (status: string) => {
     switch (status) {
@@ -194,11 +190,12 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
           style: 'default',
           onPress: async () => {
             try {
-              await appointmentService.confirmAppointment(appointmentId);
+
+              await appointmentService.updateAppointment(appointmentId, { status: 'confirmed' });
               Alert.alert('Başarılı', 'Randevu onaylandı');
               loadAppointments(); // Listeyi yenile
             } catch (error) {
-              console.error('Randevu onay hatası:', error);
+              console.error('Randevu onaylama hatası:', error);
               Alert.alert('Hata', 'Randevu onaylanırken bir hata oluştu');
             }
           },
@@ -207,28 +204,73 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
     );
   };
 
-  const handleRejectAppointment = async (appointmentId: string) => {
+
+  const handleCompleteAppointment = async (appointmentId: string) => {
     Alert.alert(
-      'Randevu Reddi',
-      'Bu randevuyu reddetmek istediğinizden emin misiniz?',
+      'Randevu Tamamlama',
+      'Bu randevuyu tamamlandı olarak işaretlemek istediğinizden emin misiniz?',
       [
         { text: 'Vazgeç', style: 'cancel' },
         {
-          text: 'Reddet',
-          style: 'destructive',
+          text: 'Tamamla',
+          style: 'default',
           onPress: async () => {
             try {
-              await appointmentService.rejectAppointment(appointmentId);
-              Alert.alert('Başarılı', 'Randevu reddedildi');
+              await appointmentService.updateAppointment(appointmentId, { status: 'completed' });
+              Alert.alert('Başarılı', 'Randevu tamamlandı olarak işaretlendi');
               loadAppointments(); // Listeyi yenile
             } catch (error) {
-              console.error('Randevu red hatası:', error);
-              Alert.alert('Hata', 'Randevu reddedilirken bir hata oluştu');
+              console.error('Randevu tamamlama hatası:', error);
+              Alert.alert('Hata', 'Randevu tamamlanırken bir hata oluştu');
             }
           },
         },
       ]
     );
+  };
+
+  const renderAppointmentActions = (appointment: Appointment) => {
+    if (userRole === 'veteriner') {
+      // Veteriner için onaylama ve tamamlama butonları
+      return (
+        <View style={styles.actionButtons}>
+          {appointment.status === 'pending' && (
+            <>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.confirmButton]}
+                onPress={() => handleConfirmAppointment(appointment.id!)}
+              >
+                <Text style={styles.confirmButtonText}>Onayla</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.cancelButton]}
+                onPress={() => handleCancelAppointment(appointment.id!)}
+              >
+                <Text style={styles.cancelButtonText}>Reddet</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          {appointment.status === 'confirmed' && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.completeButton]}
+              onPress={() => handleCompleteAppointment(appointment.id!)}
+            >
+              <Text style={styles.completeButtonText}>Tamamla</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    } else {
+      // Hayvan sahibi için sadece iptal butonu
+      return appointment.status === 'pending' ? (
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => handleCancelAppointment(appointment.id!)}
+        >
+          <Text style={styles.cancelButtonText}>İptal Et</Text>
+        </TouchableOpacity>
+      ) : null;
+    }
   };
 
   return (
@@ -242,7 +284,8 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
         <View style={styles.modalContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>
-              {user?.role === 'veteriner' ? 'Gelen Randevular' : 'Randevularım'}
+              {userRole === 'veteriner' ? 'Gelen Randevular' : 'Randevularım'}
+
             </Text>
             <View style={styles.headerButtons}>
               <TouchableOpacity onPress={loadAppointments} style={styles.refreshButton}>
@@ -263,11 +306,15 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
             ) : appointments.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
-                  {user?.role === 'veteriner' ? 'Henüz gelen randevunuz bulunmuyor' : 'Henüz randevunuz bulunmuyor'}
+
+                  {userRole === 'veteriner' 
+                    ? 'Henüz gelen randevunuz bulunmuyor' 
+                    : 'Henüz randevunuz bulunmuyor'
+                  }
                 </Text>
                 <Text style={styles.emptySubtext}>
-                  {user?.role === 'veteriner' 
-                    ? 'Hastalarınız randevu aldığında burada görünecek'
+                  {userRole === 'veteriner'
+                    ? 'Hayvan sahipleri randevu aldığında burada görünecek'
                     : 'Randevu almak için ana ekrandaki "Randevu Al" butonunu kullanın'
                   }
                 </Text>
@@ -287,24 +334,22 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
                       <Text style={styles.detailLabel}>Klinik: </Text>
                       {getClinicName(appointment.clinicId)}
                     </Text>
-                    <Text style={styles.detailText}>
-                      <Text style={styles.detailLabel}>Veteriner: </Text>
-                      {getVeterinarianName(appointment.veterinarianId)}
-                    </Text>
+
+                    {userRole !== 'veteriner' && (
+                      <Text style={styles.detailText}>
+                        <Text style={styles.detailLabel}>Veteriner: </Text>
+                        {getVeterinarianName(appointment.veterinarianId)}
+                      </Text>
+                    )}
                     <Text style={styles.detailText}>
                       <Text style={styles.detailLabel}>Hayvan: </Text>
                       {getPetName(appointment.petId)}
                     </Text>
-                    {user?.role === 'veteriner' && (
-                      <Text style={styles.detailText}>
-                        <Text style={styles.detailLabel}>Hasta Sahibi: </Text>
-                        {getUserName(appointment.userId)}
-                      </Text>
-                    )}
-                                         <Text style={styles.detailText}>
-                       <Text style={styles.detailLabel}>Tür: </Text>
-                       {getAppointmentTypeText(appointment.type)}
-                     </Text>
+
+                    <Text style={styles.detailText}>
+                      <Text style={styles.detailLabel}>Tür: </Text>
+                      {getAppointmentTypeText(appointment.type)}
+                    </Text>
                     {appointment.reason && (
                       <Text style={styles.detailText}>
                         <Text style={styles.detailLabel}>Sebep: </Text>
@@ -319,36 +364,8 @@ const AppointmentsModal: React.FC<AppointmentsModalProps> = ({
                         {getStatusText(appointment.status)}
                       </Text>
                     </View>
-                    
-                    {user?.role === 'veteriner' ? (
-                      // Veteriner için onay/red butonları
-                      appointment.status === 'pending' && (
-                        <View style={styles.veterinarianButtons}>
-                          <TouchableOpacity
-                            style={styles.confirmButton}
-                            onPress={() => handleConfirmAppointment(appointment.id!)}
-                          >
-                            <Text style={styles.confirmButtonText}>Onayla</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.rejectButton}
-                            onPress={() => handleRejectAppointment(appointment.id!)}
-                          >
-                            <Text style={styles.rejectButtonText}>Reddet</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )
-                    ) : (
-                      // Hayvan sahibi için iptal butonu
-                      appointment.status === 'pending' && (
-                        <TouchableOpacity
-                          style={styles.cancelButton}
-                          onPress={() => handleCancelAppointment(appointment.id!)}
-                        >
-                          <Text style={styles.cancelButtonText}>İptal Et</Text>
-                        </TouchableOpacity>
-                      )
-                    )}
+
+                    {renderAppointmentActions(appointment)}
                   </View>
                 </View>
               ))
@@ -501,6 +518,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
   },
+
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  confirmButton: {
+    backgroundColor: '#4CAF50',
+  },
+  confirmButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+  },
+  completeButton: {
+    backgroundColor: '#2196F3',
+  },
+  completeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+  },
   cancelButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -512,32 +555,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
   },
-  veterinarianButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  confirmButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#4CAF50',
-    borderRadius: 8,
-  },
-  confirmButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'white',
-  },
-  rejectButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F44336',
-    borderRadius: 8,
-  },
-  rejectButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'white',
-  },
+
 });
 
 export default AppointmentsModal; 

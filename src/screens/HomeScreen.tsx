@@ -16,12 +16,9 @@ import { styles } from '../styles/homeScreenStyles';
 interface HomeScreenProps {
   onNavigateToAddPet: () => void;
   onNavigateToProfile: () => void;
-  onNavigateToNotificationTest: () => void;
 }
 
-
-
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNavigateToProfile, onNavigateToNotificationTest }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNavigateToProfile }) => {
   const { user, signOut } = useAuth();
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showAppointmentsModal, setShowAppointmentsModal] = useState(false);
@@ -42,7 +39,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
   };
 
   const handleAppointmentPress = () => {
-    setShowAppointmentModal(true);
+
+    // Veteriner ise randevu onaylama modalını aç, değilse randevu alma modalını aç
+    if (user?.role === 'veteriner') {
+      setShowAppointmentsModal(true);
+    } else {
+      setShowAppointmentModal(true);
+    }
   };
 
   const handleAppointmentsPress = () => {
@@ -52,8 +55,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
   const handleAppointmentConfirm = (appointmentData: any) => {
     console.log('Randevu alındı:', appointmentData);
 
+    
     const { appointment, clinic, veterinarian, pet } = appointmentData;
-
     // Tarihi formatla
     const date = new Date(appointment.date);
     const formattedDate = date.toLocaleDateString('tr-TR', {
@@ -63,11 +66,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
       day: 'numeric',
     });
 
+    
     Alert.alert(
       'Randevu Başarılı!',
       `${clinic.name}\n${veterinarian.name}\n${pet.name}\n${formattedDate} - ${appointment.time}\n\nRandevunuz başarıyla oluşturuldu.`,
-      [{
-        text: 'Tamam',
+      [{ 
+        text: 'Tamam', 
         style: 'default',
         onPress: () => {
           // Randevu oluşturulduktan sonra randevular listesini yenile
@@ -81,11 +85,87 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
     );
   };
 
+  // Veteriner için özel servis kartları
+  const renderVeterinarianServices = () => (
+    <>
+      <TouchableOpacity style={styles.serviceCard} onPress={handleAppointmentsPress}>
+        <Text style={styles.serviceTitle}>📋 Gelen Randevular</Text>
+        <Text style={styles.serviceDescription}>
+          Size gelen randevuları görüntüleyin ve onaylayın
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.serviceCard} onPress={handleAppointmentsPress}>
+        <Text style={styles.serviceTitle}>📅 Randevularım</Text>
+        <Text style={styles.serviceDescription}>
+          Onayladığınız randevuları görüntüleyin ve yönetin
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.serviceCard} onPress={handleAddPet}>
+        <Text style={styles.serviceTitle}>🐾 Evcil Hayvan Kaydet</Text>
+        <Text style={styles.serviceDescription}>
+          Tedavi ettiğiniz evcil hayvanları kaydedin
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.serviceCard}>
+        <Text style={styles.serviceTitle}>📊 İstatistikler</Text>
+        <Text style={styles.serviceDescription}>
+          Randevu ve tedavi istatistiklerinizi görüntüleyin
+        </Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  // Hayvan sahibi için özel servis kartları
+  const renderPetOwnerServices = () => (
+    <>
+      <TouchableOpacity style={styles.serviceCard} onPress={handleAddPet}>
+        <Text style={styles.serviceTitle}>🐾 Evcil Hayvanımı Kaydet</Text>
+        <Text style={styles.serviceDescription}>
+          Evcil hayvanınızın bilgilerini ekleyin ve takip edin
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.serviceCard} onPress={handleAppointmentPress}>
+        <Text style={styles.serviceTitle}>📅 Randevu Al</Text>
+        <Text style={styles.serviceDescription}>
+          Veteriner hekiminizle randevu oluşturun
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.serviceCard} onPress={handleAppointmentsPress}>
+        <Text style={styles.serviceTitle}>📋 Randevularım</Text>
+        <Text style={styles.serviceDescription}>
+          Mevcut randevularınızı görüntüleyin ve yönetin
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.serviceCard}>
+        <Text style={styles.serviceTitle}>🏥 Acil Durum</Text>
+        <Text style={styles.serviceDescription}>
+          Acil durumlarda en yakın veterineri bulun
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.serviceCard}>
+        <Text style={styles.serviceTitle}>📋 Geçmiş Kayıtlar</Text>
+        <Text style={styles.serviceDescription}>
+          Evcil hayvanınızın geçmiş tedavi kayıtlarını görün
+        </Text>
+      </TouchableOpacity>
+    </>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.welcomeText}>Hoş Geldiniz!</Text>
+
+          <Text style={styles.welcomeText}>
+            Hoş Geldiniz, {user?.name || 'Kullanıcı'}!
+          </Text>
           <TouchableOpacity onPress={onNavigateToProfile} style={styles.profileButton}>
             <Text style={styles.profileIcon}>👤</Text>
           </TouchableOpacity>
@@ -97,86 +177,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
               {user?.role === 'veteriner' ? 'Veteriner Paneli' : 'VetApp Hizmetleri'}
             </Text>
 
-            {user?.role === 'veteriner' ? (
-              // Veteriner için özel arayüz
-              <>
-                <TouchableOpacity style={styles.serviceCard} onPress={handleAppointmentsPress}>
-                  <Text style={styles.serviceTitle}>📋 Gelen Randevular</Text>
-                  <Text style={styles.serviceDescription}>
-                    Size gelen randevuları görüntüleyin ve onaylayın
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.serviceCard}>
-                  <Text style={styles.serviceTitle}>📊 Hasta Geçmişi</Text>
-                  <Text style={styles.serviceDescription}>
-                    Hastalarınızın geçmiş tedavi kayıtlarını görün
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.serviceCard}>
-                  <Text style={styles.serviceTitle}>📅 Çalışma Saatleri</Text>
-                  <Text style={styles.serviceDescription}>
-                    Çalışma saatlerinizi düzenleyin
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.serviceCard}>
-                  <Text style={styles.serviceTitle}>📈 İstatistikler</Text>
-                  <Text style={styles.serviceDescription}>
-                    Randevu ve hasta istatistiklerinizi görün
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.serviceCard}
-                  onPress={onNavigateToNotificationTest}
-                >
-                  <Text style={styles.serviceTitle}>🔔 OneSignal Test Ekranı</Text>
-                  <Text style={styles.serviceDescription}>
-                    OneSignal bildirim testleri ve logları
-                  </Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              // Hayvan sahibi için normal arayüz
-              <>
-                <TouchableOpacity style={styles.serviceCard} onPress={handleAddPet}>
-                  <Text style={styles.serviceTitle}>🐾 Evcil Hayvanımı Kaydet</Text>
-                  <Text style={styles.serviceDescription}>
-                    Evcil hayvanınızın bilgilerini ekleyin ve takip edin
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.serviceCard} onPress={handleAppointmentPress}>
-                  <Text style={styles.serviceTitle}>📅 Randevu Al</Text>
-                  <Text style={styles.serviceDescription}>
-                    Veteriner hekiminizle randevu oluşturun
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.serviceCard} onPress={handleAppointmentsPress}>
-                  <Text style={styles.serviceTitle}>📋 Randevularım</Text>
-                  <Text style={styles.serviceDescription}>
-                    Mevcut randevularınızı görüntüleyin ve yönetin
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.serviceCard}>
-                  <Text style={styles.serviceTitle}>🏥 Acil Durum</Text>
-                  <Text style={styles.serviceDescription}>
-                    Acil durumlarda en yakın veterineri bulun
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.serviceCard}>
-                  <Text style={styles.serviceTitle}>📋 Geçmiş Kayıtlar</Text>
-                  <Text style={styles.serviceDescription}>
-                    Evcil hayvanınızın geçmiş tedavi kayıtlarını görün
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
+            
+            {user?.role === 'veteriner' ? renderVeterinarianServices() : renderPetOwnerServices()}
           </View>
         </View>
 
@@ -196,9 +198,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToAddPet, onNa
       <AppointmentsModal
         visible={showAppointmentsModal}
         onClose={() => setShowAppointmentsModal(false)}
+        userRole={user?.role}
       />
-      
     </SafeAreaView>
   );
 };
-

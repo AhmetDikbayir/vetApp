@@ -8,9 +8,12 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+<<<<<<< HEAD
 
 -keep class com.google.firebase.** { *; }
 -keep class com.google.android.gms.** { *; }
 -keep class com.google.firebase.auth.** { *; }
 -dontwarn com.google.firebase.**
 
+=======
+>>>>>>> 7ee836d (google sign in bir daha bozulana kadar düzeldi.)

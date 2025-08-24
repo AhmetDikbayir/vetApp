@@ -22,6 +22,15 @@
           }
         },
         {
+
+          "client_id": "257645513339-lk2pdtsgun8glev68tv3l2mjnrn5ms21.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vetapp",
+            "certificate_hash": "8a22d7663bfee73fde8dad6440f95cec64e91d4a"
+          }
+        },
+        {
           "client_id": "257645513339-r7b61cdkuvttfp71nb61pvcoserjb9d7.apps.googleusercontent.com",
           "client_type": 3
         }

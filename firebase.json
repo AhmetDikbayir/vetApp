@@ -1,9 +1,16 @@
 {
   "firestore": {
+<<<<<<< HEAD
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
   "functions": {
     "source": "functions"
+=======
+    "database": "(default)",
+    "location": "eur3",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+>>>>>>> 7ee836d (google sign in bir daha bozulana kadar düzeldi.)
   }
 }

@@ -14,7 +14,6 @@ import { clinicService } from '../services/clinicService';
 import { veterinarianService } from '../services/veterinarianService';
 import { appointmentService } from '../services/appointmentService';
 import { petService } from '../services/petService';
-import { notificationService } from '../models/NotificationService';
 import { Clinic } from '../types/clinic';
 import { Veterinarian } from '../types/veterinarian';
 import { Pet } from '../types/pet';
@@ -200,32 +199,17 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
       // Randevu oluştur
       const appointmentData = {
         petId: selectedPet.id!,
-        petName: selectedPet.name,
-        ownerId: selectedPet.userId,
-        ownerName: selectedPet.ownerName || 'Bilinmeyen Hasta',
+
         veterinarianId: selectedVeterinarian.id!,
-        veterinarianName: selectedVeterinarian.name,
+        veterinarianEmail: selectedVeterinarian.email, // Veteriner email'ini ekle
         clinicId: selectedClinic.id!,
-        clinicName: selectedClinic.name,
         date: selectedDate,
         time: selectedTime,
-        status: 'pending' as const,
-        notes: reason.trim(),
+        type: appointmentType,
+        reason: reason.trim(),
       };
 
       const appointment = await appointmentService.createAppointment(appointmentData);
-      
-      // Veterinere OneSignal bildirimi gönder
-      try {
-        console.log('📨 Veterinere randevu bildirimi gönderiliyor...');
-        
-        // Randevu oluşturulduğunda otomatik olarak bildirim gönderilecek
-        // (appointmentService içindeki event listener sayesinde)
-        console.log('✅ Randevu oluşturuldu, bildirim otomatik olarak gönderilecek');
-      } catch (notificationError) {
-        console.error('❌ Randevu bildirimi hatası:', notificationError);
-        // Bildirim hatası randevu oluşturmayı etkilemesin
-      }
       
       onConfirm({
         appointment,

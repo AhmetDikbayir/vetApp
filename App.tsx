@@ -3,8 +3,8 @@ import { AuthProvider } from './src/context/AuthContext';
 import { StatusBar } from 'react-native';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { View, Text, StyleSheet } from 'react-native';
+
 import { useEffect } from 'react';
-import { notificationService } from './src/models/NotificationService';
 import { auth } from './src/firebase';
 
 // Error Boundary Component
@@ -38,7 +38,6 @@ class ErrorBoundary extends React.Component<
     return this.props.children;
   }
 }
-
 
 export default function App() {
   React.useEffect(() => {

@@ -12,7 +12,6 @@ class VeterinarianServiceImpl {
       
       const firestoreData = {
         ...veterinarianData,
-        userId: veterinarianData.userId,
         isAvailable: true,
         rating: 0,
         reviewCount: 0,

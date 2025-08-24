@@ -130,5 +130,4 @@ dependencies {
     implementation project(':invertase_react-native-apple-authentication')
     implementation project(':react-native-svg')
     implementation project(':react-native-vector-icons')
-    implementation 'com.onesignal:OneSignal:5.2.13'
 }

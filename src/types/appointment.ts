@@ -19,10 +19,11 @@ export interface Appointment {
 export interface CreateAppointmentData {
   petId: string;
   veterinarianId: string;
+  veterinarianEmail?: string; // Veteriner email'i - güvenlik için
   clinicId: string;
   date: string;
   time: string;
   type: 'checkup' | 'vaccination' | 'surgery' | 'emergency' | 'consultation' | 'other';
   reason: string;
   notes?: string;
-} 
+}

@@ -41,10 +41,13 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+<<<<<<< HEAD
 # Firebase service account
 functions/service-account-key.json
 functions/node_modules/
 
+=======
+>>>>>>> 7ee836d (google sign in bir daha bozulana kadar düzeldi.)
 # fastlane
 #
 # It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the

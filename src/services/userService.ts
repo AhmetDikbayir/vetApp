@@ -189,25 +189,6 @@ class UserServiceImpl {
       return null;
     }
   }
-
-  async getUsers(): Promise<User[]> {
-    try {
-      const snapshot = await this.getUsersCollection().get();
-      
-      const users = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-        } as User;
-      });
-      
-      return users;
-    } catch (error) {
-      console.error('Tüm kullanıcıları alma hatası:', error);
-      return [];
-    }
-  }
 }
 
 export const userService = new UserServiceImpl(); 
